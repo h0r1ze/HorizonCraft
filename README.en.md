@@ -1,5 +1,8 @@
 <div align="center">
 
+[![Русский: переключить язык](https://img.shields.io/badge/%D0%A0%D1%83%D1%81%D1%81%D0%BA%D0%B8%D0%B9-%D1%87%D0%B8%D1%82%D0%B0%D1%82%D1%8C_%D0%BF%D0%BE--%D1%80%D1%83%D1%81%D1%81%D0%BA%D0%B8-0969da?style=for-the-badge)](README.md)
+[![English: you are here](https://img.shields.io/badge/English-you_are_here-2ea44f?style=for-the-badge)](README.en.md)
+
 # 🧱 HorizonCraft
 
 **A web panel for Minecraft servers, powered by Docker.**
@@ -9,8 +12,6 @@ Create, configure and maintain multiple servers from your browser. No Java, port
 [![Node.js](https://img.shields.io/badge/Node.js-22-5FA04E?logo=node.js&logoColor=white)](https://nodejs.org/)
 [![Platform](https://img.shields.io/badge/platform-Linux-FCC624?logo=linux&logoColor=black)](#-requirements)
 [![License](https://img.shields.io/badge/license-MIT-4ade80)](LICENSE)
-
-**English** · [Русский](README.md)
 
 <br>
 
@@ -329,3 +330,12 @@ DATA_DIR="$PWD/data" ADMIN_PASSWORD=devpassword node server/index.js
 ## 📄 License
 
 [MIT](LICENSE)
+
+---
+
+<div align="center">
+
+[![Русский: переключить язык](https://img.shields.io/badge/%D0%A0%D1%83%D1%81%D1%81%D0%BA%D0%B8%D0%B9-%D1%87%D0%B8%D1%82%D0%B0%D1%82%D1%8C_%D0%BF%D0%BE--%D1%80%D1%83%D1%81%D1%81%D0%BA%D0%B8-0969da?style=for-the-badge)](README.md)
+[![English: you are here](https://img.shields.io/badge/English-you_are_here-2ea44f?style=for-the-badge)](README.en.md)
+
+</div>

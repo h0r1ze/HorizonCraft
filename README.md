@@ -1,5 +1,8 @@
 <div align="center">
 
+[![Русский: вы здесь](https://img.shields.io/badge/%D0%A0%D1%83%D1%81%D1%81%D0%BA%D0%B8%D0%B9-%D0%B2%D1%8B_%D0%B7%D0%B4%D0%B5%D1%81%D1%8C-2ea44f?style=for-the-badge)](README.md)
+[![English: switch language](https://img.shields.io/badge/English-read_in_English-0969da?style=for-the-badge)](README.en.md)
+
 # 🧱 HorizonCraft
 
 **Веб-панель для Minecraft-серверов на Docker.**
@@ -9,8 +12,6 @@
 [![Node.js](https://img.shields.io/badge/Node.js-22-5FA04E?logo=node.js&logoColor=white)](https://nodejs.org/)
 [![Platform](https://img.shields.io/badge/platform-Linux-FCC624?logo=linux&logoColor=black)](#-требования)
 [![License](https://img.shields.io/badge/license-MIT-4ade80)](LICENSE)
-
-[English](README.en.md) · **Русский**
 
 <br>
 
@@ -361,3 +362,12 @@ DATA_DIR="$PWD/data" ADMIN_PASSWORD=devpassword node server/index.js
 ## 📄 Лицензия
 
 [MIT](LICENSE)
+
+---
+
+<div align="center">
+
+[![Русский: вы здесь](https://img.shields.io/badge/%D0%A0%D1%83%D1%81%D1%81%D0%BA%D0%B8%D0%B9-%D0%B2%D1%8B_%D0%B7%D0%B4%D0%B5%D1%81%D1%8C-2ea44f?style=for-the-badge)](README.md)
+[![English: switch language](https://img.shields.io/badge/English-read_in_English-0969da?style=for-the-badge)](README.en.md)
+
+</div>
