@@ -15,6 +15,7 @@ export function load() {
   db.user ??= null;
   db.nodes ??= [];      // подключённые внешние машины (ноды)
   db.placement ??= {};  // id сервера -> id ноды, на которой он живёт
+  db.templates ??= [];  // шаблоны серверов
   save();
   return db;
 }

@@ -82,7 +82,7 @@ export function checkSpace(total, where) {
   } catch (e) { if (/места/.test(e.message)) throw e; }
 }
 
-export async function chown(dir) { await exec('chown', ['-R', '1000:1000', dir]); }
+export async function chown(dir) { try { await exec('chown', ['-R', '1000:1000', dir]); } catch {} }
 
 export async function extract(file, kind, target) {
   fs.mkdirSync(target, { recursive: true });

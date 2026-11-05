@@ -79,11 +79,15 @@ Example: `PANEL_PORT=9090 ADMIN_PASSWORD=MySecret123 ./install.sh`
 | 💾 **Backups** | Manual and scheduled backups, retention limit, one-click restore |
 | ⏰ **Schedules** | Restart (players are warned 30 seconds ahead), backup, or any command on a schedule |
 | 🌍 **Multiple machines (nodes)** | Connect other computers and VPSes and create servers on them. Everything stays in one panel: console, files, backups and players work just like on the main machine |
+| 🚚 **Move between machines** | Move a whole server (world, mods, settings) to another machine or node in one click, even a running one: the panel stops it and starts it at the new place |
+| 🔄 **Updates** | New Minecraft versions and fresh versions of plugins and mods: files are recognised by hash on Modrinth and updated on selection, with a backup beforehand |
+| 🗺️ **World map** | A live Dynmap map in one click: plugin, port and link are set up for you |
+| 📋 **Templates** | Save a configured server (settings, mods, configs) as a template and create new servers from it on any machine |
 | 🌐 **Network & domains** | Many servers behind a single port 25565 by domain (via `mc-router`), extra ports for voice chat or Dynmap |
 | 📁 **Files** | Browse and edit files, upload, extract and download archives |
 | 📦 **Import & clone** | Upload an existing server as an archive, or clone one together with its world |
 | 📊 **Monitoring** | CPU, memory and disk usage for the host and each server |
-| 🎨 **Looks** | Server covers and icons, coloured MOTD editor, several dark and light panel themes |
+| 🎨 **Looks** | Three interface layouts to choose from (Graphite, Light, Hosting) and ten colour themes, server covers and icons, coloured MOTD editor |
 | 🔒 **Download proxy** | Fetch modpacks and mods through VLESS (3x-ui subscription or `vless://` link) if sites are blocked where you live |
 
 ## 📸 Screenshots
@@ -108,6 +112,14 @@ Example: `PANEL_PORT=9090 ADMIN_PASSWORD=MySecret123 ./install.sh`
   <tr>
     <td width="50%"><img src="docs/nodes-form.png" alt="Connecting a node"><br><sub><b>Connecting a node.</b> Install command, address and token</sub></td>
     <td width="50%"><img src="docs/themes.png" alt="Themes"><br><sub><b>Themes.</b> Ten dark and light themes</sub></td>
+  </tr>
+  <tr>
+    <td width="50%"><img src="docs/updates.png" alt="Updates"><br><sub><b>Updates.</b> New Minecraft versions and fresh plugin and mod builds</sub></td>
+    <td width="50%"><img src="docs/migrate.png" alt="Moving a server"><br><sub><b>Moving a server.</b> To another machine or node, even a running one</sub></td>
+  </tr>
+  <tr>
+    <td width="50%"><img src="docs/map.png" alt="World map"><br><sub><b>World map.</b> Dynmap in one click</sub></td>
+    <td width="50%"><img src="docs/template.png" alt="Create from a template"><br><sub><b>Templates.</b> A new server from a saved template</sub></td>
   </tr>
 </table>
 
@@ -147,7 +159,7 @@ Requests for servers on a node are forwarded to its agent, so everything local s
 
 - The CurseForge key set in the main panel is passed to nodes automatically.
 - **VLESS proxy and "Minecraft images"** are configured per node: the proxy in its own panel, images with the **Images** button in the node list.
-- Moving a server from one machine to another is not supported yet: make a backup, download it and upload it to the target node via import.
+- Servers can be moved between machines, see [Moving a server](#-moving-a-server-between-machines).
 - If a node is unreachable, its servers stay in the list marked "Node unreachable". The servers themselves keep running on their machine.
 - Players connect to the node directly; game traffic does not go through the main panel. For a domain, set **Address for players** in the node form.
 - Removing a node from the panel does **not** delete its servers: they keep running and the node can be connected again.
@@ -155,6 +167,63 @@ Requests for servers on a node are forwarded to its agent, so everything local s
 
 > [!WARNING]
 > A node token gives full control over Docker on that machine. Open the node's port in the firewall **only for the main panel's IP** (`sudo ufw allow from <IP> to any port 8088 proto tcp`). Traffic between panels is plain HTTP, so over the internet connect nodes through a VPN (WireGuard, Tailscale) or put a reverse proxy with HTTPS in front of the agent and use an `https://…` address.
+
+## 🖼️ Interface layouts
+
+**Settings → Interface layout** switches the page layout. Colours come from the theme, so layout and theme can be combined freely. The choice is remembered in the browser.
+
+<table>
+  <tr>
+    <td width="33%"><img src="docs/ui-a.png" alt="Layout A: Graphite"><br><sub><b>A · Graphite.</b> Narrow icon rail, servers as rows, grouped server tabs with rare ones under "More"</sub></td>
+    <td width="33%"><img src="docs/ui-b.png" alt="Layout B: Light"><br><sub><b>B · Light.</b> Large server cards and room to breathe. Server sections in a vertical three-group menu</sub></td>
+    <td width="33%"><img src="docs/ui-c.png" alt="Layout C: Hosting"><br><sub><b>C · Hosting.</b> Top navigation, servers as a table, ring gauges for host resources</sub></td>
+  </tr>
+  <tr>
+    <td><img src="docs/ui-a-server.png" alt="Server page, layout A"></td>
+    <td><img src="docs/ui-b-server.png" alt="Server page, layout B"></td>
+    <td><img src="docs/ui-c-server.png" alt="Server page, layout C"></td>
+  </tr>
+</table>
+
+On a phone the side and top menus are replaced by a bottom bar, and server sections become a scrollable strip.
+
+## 🚚 Moving a server between machines
+
+Server page **"⋯" menu → Move to another machine** (shown once at least one node is connected). You can move from the main machine to a node, from a node to the main machine, and between nodes.
+
+1. Choose the destination. If the server is running, the panel stops it (the world is saved) and, if you wish, starts it at the new place.
+2. Server files are streamed as `tar.gz` from one machine to the other through the main panel, with no temporary files on its disk.
+3. The new machine gets a server with the same settings: type and version, memory, properties, mod lists, schedule, player tags, cover and icon, world map.
+
+Until the move succeeds the source server stays untouched. On an error at any step it is started again and the data received on the new machine is discarded. By default the source server **stays** (stopped) on the old machine: delete it once you are sure everything works, or turn on "Delete after a successful move".
+
+<details>
+<summary><b>What is not moved</b></summary>
+
+- **The domain.** It is configured per machine: set it up again on the "Network & domain" tab.
+- **The server proxy.** Proxy nodes are stored in each machine's panel.
+- **The port** is kept if free on the new machine, otherwise the next free one is used.
+- Servers containing symbolic links are not moved (such archives are rejected for safety).
+</details>
+
+## 🔄 Updates
+
+The **Updates** tab on a server page:
+
+- **Core.** If the server is pinned to a Minecraft version and newer ones exist, the panel says so and offers to update. A backup can be created before the version change. For a "latest" server a restart is enough.
+- **Plugins and mods.** Files in `plugins/` (Paper, Purpur) or `mods/` (Fabric, Forge, NeoForge) are matched against [Modrinth](https://modrinth.com) by hash, so it does not matter where they came from. Pick the updates and press **Update selected**: the file is downloaded, verified by checksum and replaces the old one.
+- For a pinned server it shows how many of your plugins and mods already have builds for the newest Minecraft version.
+- Every 6 hours the panel checks servers by itself and puts a badge with the number of available updates on the server card.
+
+Files that are not on Modrinth (built by hand or taken from other sites) are listed separately and are not updated automatically.
+
+## 🗺️ World map
+
+The **Map** tab (Paper and Purpur servers) enables [Dynmap](https://modrinth.com/plugin/dynmap) in one click: the panel adds the plugin to the Modrinth auto-install list, picks a free port for the map page (from 8123–8199) and shows a link and a preview. The plugin is downloaded on the next server start. **Render** starts a full render of the world. To share the map with friends, forward the shown port on your router.
+
+## 📋 Server templates
+
+**"⋯" menu on a server page → Save as template.** A template holds the type and version, memory, `server.properties` values, Modrinth and CurseForge mod lists, the schedule and, optionally, the `mods`, `plugins` and `config` folders. The world, player tags and domain are not saved. On **New server** pick a template, give it a name, and the server appears on the chosen machine (including a node) already with the right plugins. Templates are managed under **Settings → Server templates**.
 
 ## 🔧 Configuration
 

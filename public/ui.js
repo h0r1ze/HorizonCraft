@@ -47,6 +47,10 @@ const P = {
   check: 'M5 12l5 5 9-10',
   dots: 'M5 12h.01M12 12h.01M19 12h.01',
   rocket: 'M5 15c-1 1-2 4-2 6 2 0 5-1 6-2M14 4c4-1 6-1 6-1s0 2-1 6l-6 6-5-5zM9 15l-3-3 3-1M15 14l1 3-3 1',
+  map: 'M3 6l6-2 6 2 6-2v14l-6 2-6-2-6 2zM9 4v14M15 6v14',
+  swap: 'M4 8h14l-4-4M20 16H6l4 4',
+  layers: 'M12 3l9 5-9 5-9-5zM3 12l9 5 9-5M3 16l9 5 9-5',
+  arrowup: 'M12 19V5M6 11l6-6 6 6',
 };
 export const Icon = ({ n, size = 17 }) => html`<svg width=${size} height=${size} viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" style="flex:none"><path d=${P[n] || ''} /></svg>`;
 
@@ -138,6 +142,30 @@ export function setTheme(t) {
   document.documentElement.dataset.theme = th.id;
   document.documentElement.dataset.mode = th.mode;
   try { localStorage.setItem('hc-theme', th.id); } catch {}
+}
+
+/* ---------- виды интерфейса: раскладка (цвета задаёт тема) ---------- */
+export const UIS = [
+  { id: 'a', name: 'Графит', theme: 'dark', desc: 'Узкая колонка иконок, плотные строки, вкладки сервера сгруппированы, редкие в «Ещё».' },
+  { id: 'b', name: 'Светлый', theme: 'light', desc: 'Крупные карточки и воздух. Разделы сервера в вертикальном меню из трёх групп.' },
+  { id: 'c', name: 'Хостинг', theme: 'light', desc: 'Верхнее меню, серверы таблицей, шкалы ресурсов и меню разделов слева.' },
+];
+const uiSubs = new Set();
+export function getUi() {
+  try { const u = localStorage.getItem('hc-ui'); if (UIS.some(x => x.id === u)) return u; } catch {}
+  return 'b';
+}
+export function setUi(u) {
+  const v = UIS.some(x => x.id === u) ? u : 'b';
+  document.documentElement.dataset.ui = v;
+  try { localStorage.setItem('hc-ui', v); } catch {}
+  uiSubs.forEach(f => f(v));
+}
+/** Текущий вид интерфейса; компонент перерисовывается при его смене. */
+export function useUi() {
+  const [u, set] = useState(getUi());
+  useEffect(() => { uiSubs.add(set); return () => uiSubs.delete(set); }, []);
+  return u;
 }
 
 /* ---------- утилиты ---------- */

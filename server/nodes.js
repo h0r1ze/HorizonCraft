@@ -22,6 +22,16 @@ export const hostOf = n => n.publicHost || new URL(n.url).hostname;
 export const tag = n => ({ id: n.id, name: n.name, host: hostOf(n), online: !!status.get(n.id)?.online });
 export const localTag = () => ({ id: 'local', name: 'Эта машина', host: db().settings.publicHost || '', online: true });
 
+/** Нода достаточно новая для переноса серверов и шаблонов? Иначе бросает понятную ошибку. */
+export function requireNew(n, min = '1.1.0') {
+  const have = (status.get(n.id)?.version || '0').split('.').map(Number);
+  const need = min.split('.').map(Number);
+  for (let i = 0; i < 3; i++) {
+    if ((have[i] || 0) > need[i]) return;
+    if ((have[i] || 0) < need[i]) throw bad(`На ноде «${n.name}» старая версия HorizonCraft (v${have.join('.')}). Обновите её командой ./update.sh на той машине, нужна версия ${min} или новее.`);
+  }
+}
+
 /* ---------- проверка ввода ---------- */
 export function cleanUrl(u) {
   let x;
@@ -79,6 +89,23 @@ export async function json(n, method, path, body, timeout = 10000) {
   if (res.statusCode === 401) throw badToken();
   if (res.statusCode >= 400) throw bad(data.error || `Нода ответила ${res.statusCode}`, res.statusCode);
   return data;
+}
+
+/** Запрос к агенту без разбора тела: для потоковой передачи файлов. Ошибки статуса превращаются в исключения. */
+export async function raw(n, method, path, { body, headers = {}, timeout = 60e3 } = {}) {
+  let res;
+  try {
+    res = await request(n.url + '/api' + path, {
+      method, headers: { ...auth(n), ...headers }, body, headersTimeout: timeout, bodyTimeout: 0,
+    });
+  } catch (e) { throw mapErr(e); }
+  if (res.statusCode === 401) { res.body.resume(); throw badToken(); }
+  if (res.statusCode >= 400) {
+    let d = {};
+    try { d = JSON.parse(await res.body.text()); } catch {}
+    throw bad(d.error || `Нода ответила ${res.statusCode}`, res.statusCode);
+  }
+  return res;
 }
 
 /* ---------- состояние нод ---------- */

@@ -1,5 +1,6 @@
 import { html, useState, useEffect, useRef, Icon, Btn, Field, Meter, toast, TYPE_NAMES, TYPE_COLOR, fmtBytes, appState } from './ui.js';
 import { useNodes, NodePicker } from './nodes.js';
+import { useTemplates, tplLine } from './templates.js';
 import { api, getVersions } from './api.js';
 
 const TYPES = [
@@ -46,18 +47,26 @@ export function ModpackSearch({ onPick, kind = 'modpack', loader = '', gameVersi
   </div>`;
 }
 
-function NewServerForm({ nodeId }) {
-  const [v, setV] = useState({ name: '', type: 'PAPER', version: 'LATEST', memory: 4, cfSlug: '', cfName: '' });
+function NewServerForm({ nodeId, tplId }) {
+  const [v, setV] = useState({ name: '', type: 'PAPER', version: 'LATEST', memory: 4, cfSlug: '', cfName: '', templateId: tplId || '' });
   const [versions, setVersions] = useState([]);
+  const [templates] = useTemplates();
   const [busy, setBusy] = useState(false);
   useEffect(() => { getVersions().then(setVersions); }, []);
   const set = o => setV(x => ({ ...x, ...o }));
+  const tpl = (templates || []).find(t => t.id === v.templateId) || null;
   const isPack = v.type === 'AUTO_CURSEFORGE';
+  useEffect(() => { // выбран шаблон: берём из него память
+    if (tpl) set({ memory: Math.min(24, Math.max(1, parseInt(tpl.memory) || 4)) });
+  }, [tpl?.id]);
 
   const create = async start => {
     setBusy(true);
     try {
-      const body = {
+      const body = tpl ? {
+        name: v.name.trim() || tpl.name, templateId: tpl.id, memory: v.memory + 'G',
+        ...(nodeId && nodeId !== 'local' ? { nodeId } : {}),
+      } : {
         name: v.name.trim() || 'Новый сервер', type: v.type, memory: v.memory + 'G',
         ...(isPack ? { cfSlug: v.cfSlug } : { version: v.version }),
         ...(nodeId && nodeId !== 'local' ? { nodeId } : {}),
@@ -70,11 +79,20 @@ function NewServerForm({ nodeId }) {
   };
 
   return html`<div class="col">
+    ${templates && templates.length > 0 && html`<div class="card col">
+      <h2>Шаблон</h2>
+      <${Field} label="Создать по шаблону" hint="Шаблон задаёт тип, версию, память, настройки и моды. Название и память можно изменить.">
+        <select value=${v.templateId} onChange=${e => set({ templateId: e.target.value })}>
+          <option value="">Без шаблона</option>
+          ${templates.map(t => html`<option key=${t.id} value=${t.id}>${t.name}</option>`)}
+        </select></${Field}>
+      ${tpl && html`<div class="banner info" style="margin:0"><b>${tpl.name}</b>: ${tplLine(tpl)}${tpl.desc ? '. ' + tpl.desc : ''}</div>`}
+    </div>`}
     <div class="card col">
       <h2>Название</h2>
-      <input placeholder="Например, Выживание с друзьями" value=${v.name} onInput=${e => set({ name: e.target.value })} />
+      <input placeholder=${tpl ? tpl.name : 'Например, Выживание с друзьями'} value=${v.name} onInput=${e => set({ name: e.target.value })} />
     </div>
-    <div class="card col">
+    ${!tpl && html`<div class="card col">
       <h2>Тип сервера</h2>
       <div class="types">${TYPES.map(([t, d]) => html`
         <button key=${t} class=${'type ' + (v.type === t ? 'on' : '')} style=${`--tc:${TYPE_COLOR[t]}`} onClick=${() => set({ type: t })}>
@@ -95,15 +113,15 @@ function NewServerForm({ nodeId }) {
             ${versions.map(x => html`<option value=${x}>${x}</option>`)}
           </select>
         </${Field}>
-      </div>`}
+      </div>`}`}
     <div class="card col">
       <h2>Память: ${v.memory} ГБ</h2>
       <input type="range" min="1" max="24" value=${v.memory} onInput=${e => set({ memory: +e.target.value })} />
       <small class="muted">Для ванильного сервера на несколько человек хватает 2-4 ГБ, для больших сборок обычно 6-10 ГБ.</small>
     </div>
     <div class="row">
-      <${Btn} kind="primary" icon="play" disabled=${busy || (isPack && !v.cfSlug)} onClick=${() => create(true)}>Создать и запустить</${Btn}>
-      <${Btn} disabled=${busy || (isPack && !v.cfSlug)} onClick=${() => create(false)}>Только создать</${Btn}>
+      <${Btn} kind="primary" icon="play" disabled=${busy || (!tpl && isPack && !v.cfSlug)} onClick=${() => create(true)}>Создать и запустить</${Btn}>
+      <${Btn} disabled=${busy || (!tpl && isPack && !v.cfSlug)} onClick=${() => create(false)}>Только создать</${Btn}>
     </div>
     <small class="muted">При первом запуске скачиваются образ Java и файлы сервера, это может занять несколько минут.</small>
   </div>`;
@@ -243,6 +261,6 @@ export function CreatePage() {
       <button class=${mode === 'new' ? 'on' : ''} onClick=${() => setMode('new')}>Создать с нуля</button>
       <button class=${mode === 'import' ? 'on' : ''} onClick=${() => setMode('import')}>Загрузить свой сервер</button></div>
     <${NodePicker} nodes=${nodes} value=${nodeId} onChange=${setNodeId} />
-    ${mode === 'new' ? html`<${NewServerForm} nodeId=${nodeId} />` : html`<${ImportServer} nodeId=${nodeId} />`}
+    ${mode === 'new' ? html`<${NewServerForm} nodeId=${nodeId} tplId=${new URLSearchParams(location.hash.split('?')[1] || '').get('tpl') || ''} />` : html`<${ImportServer} nodeId=${nodeId} />`}
   </div>`;
 }

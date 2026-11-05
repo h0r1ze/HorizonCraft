@@ -11,6 +11,7 @@ import * as dk from './dock.js';
 import { createRouter, verify } from './routes.js';
 import { agentAuth } from './agent.js';
 import * as nodes from './nodes.js';
+import { startChecks } from './updates.js';
 import { startServices } from './services.js';
 import { cleanupOld } from './importer.js';
 import { migrate as migrateProxy } from './proxy.js';
@@ -95,6 +96,7 @@ for (const c of store.get().servers) dk.syncIcon(c);
 startServices();
 cleanupOld();
 nodes.startPolling();
+startChecks();
 
 // Для уже сохранённого ключа выясняем, доступен ли поиск CurseForge.
 (async () => {

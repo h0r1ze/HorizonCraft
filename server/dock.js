@@ -198,8 +198,20 @@ export function buildEnv(cfg) {
   return Object.entries(e).filter(([, v]) => v !== '' && v != null).map(([k, v]) => `${k}=${v}`);
 }
 
+/** Порт на хосте для карты мира (Dynmap). Пустая строка, если карта выключена. */
+export const mapPort = cfg => (cfg.map?.on && cfg.map.port ? String(cfg.map.port) : '');
+
+/** Порты хоста, уже опубликованные любыми контейнерами Docker (для выбора свободного порта карты). */
+export async function publishedPorts() {
+  const list = await docker.listContainers({ all: true });
+  return new Set(list.flatMap(c => (c.Ports || []).map(p => p.PublicPort)).filter(Boolean));
+}
+
+// Порт карты входит в отпечаток только когда карта включена: у серверов без карты отпечаток остаётся прежним,
+// и после обновления панели они не помечаются как «требующие пересоздания».
 export const specOf = cfg => sha(JSON.stringify({
   img: `${IMG}:${javaTag(cfg)}`, env: buildEnv(cfg), port: cfg.port, extra: parseExtra(cfg.extraPorts),
+  ...(mapPort(cfg) ? { map: mapPort(cfg) } : {}),
 }));
 
 export async function inspect(id) {
@@ -227,6 +239,10 @@ async function create(cfg) {
   for (const x of parseExtra(cfg.extraPorts)) {
     exposed[`${x.port}/${x.proto}`] = {};
     bindings[`${x.port}/${x.proto}`] = [{ HostPort: x.port }];
+  }
+  if (mapPort(cfg)) { // карта мира (Dynmap): веб-порт плагина 8123 внутри контейнера
+    exposed['8123/tcp'] = {};
+    bindings['8123/tcp'] = [{ HostPort: mapPort(cfg) }];
   }
   return docker.createContainer({
     name: cname(cfg.id), Image: image, Env: buildEnv(cfg),

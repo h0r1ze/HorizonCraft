@@ -1,16 +1,63 @@
-import { html, useState, useEffect, useRef, askConfirm, askText, Icon, Btn, Field, Toggle, Modal, Spark, Meter, Avatar, toast, StateBadge, TYPE_NAMES, TYPE_COLOR, fmtBytes, addrOf, uptime, ago, copyText, plural, appState, isRemote } from './ui.js';
+import { html, useState, useEffect, useRef, askConfirm, askText, Icon, Btn, Field, Toggle, Modal, Spark, Meter, Avatar, toast, StateBadge, TYPE_NAMES, TYPE_COLOR, fmtBytes, addrOf, uptime, ago, copyText, plural, appState, isRemote, useUi } from './ui.js';
 import { api, getVersions } from './api.js';
 import { ModpackSearch } from './create.js';
 import { ServerProxy } from './proxy.js';
 import { CoverCard, CoverEditor, coverUrl } from './cover.js';
 import { McEditor, MotdPreview, FmtText, ColorRow, ServerName } from './mcfmt.js';
 import { escape as mcEsc, strip as mcStrip } from './mc.js';
+import { MigrateDialog, MigrationCard } from './migrate.js';
+import { SaveTemplateDialog } from './templates.js';
+import { UpdatesTab } from './updates.js';
+import { MapTab } from './map.js';
+import { useNodes } from './nodes.js';
 
 const TABS = [
   ['overview', 'Обзор', 'chart'], ['console', 'Консоль', 'terminal'], ['players', 'Игроки', 'users'],
-  ['config', 'Настройки', 'sliders'], ['mods', 'Моды', 'puzzle'], ['backups', 'Бэкапы', 'archive'],
-  ['schedule', 'Расписание', 'clock'], ['network', 'Сеть и домен', 'globe'], ['files', 'Файлы', 'folder'],
+  ['config', 'Настройки', 'sliders'], ['mods', 'Моды', 'puzzle'], ['updates', 'Обновления', 'arrowup'], ['backups', 'Бэкапы', 'archive'],
+  ['schedule', 'Расписание', 'clock'], ['network', 'Сеть и домен', 'globe'], ['map', 'Карта', 'map'], ['files', 'Файлы', 'folder'],
 ];
+
+/* Разделы сервера. Вид A: вкладки в строку, редкие под «Ещё». Виды B и C: вертикальное меню из трёх групп. */
+const TAB = Object.fromEntries(TABS.map(t => [t[0], t]));
+const GROUPS = [
+  ['Управление', ['overview', 'console', 'players']],
+  ['Контент', ['mods', 'updates', 'map', 'files']],
+  ['Система', ['config', 'backups', 'schedule', 'network']],
+];
+const PRIMARY = ['overview', 'console', 'players', 'config', 'mods', 'updates'];
+
+function SectionNav({ s, id, tab, ui }) {
+  const [more, setMore] = useState(false);
+  const go = k => { setMore(false); location.hash = `#/s/${id}/${k}`; };
+  const n = s.updInfo ? (s.updInfo.mods || 0) + (s.updInfo.core ? 1 : 0) : 0;
+  const badge = k => (k === 'updates' && n > 0 ? html`<span class="chip warn" style="padding:0 6px;margin-left:2px">${n}</span>` : '');
+  if (ui === 'a') {
+    const shown = PRIMARY.includes(tab) ? PRIMARY : [...PRIMARY, tab];
+    const rest = Object.keys(TAB).filter(k => !shown.includes(k));
+    return html`<div class="tabs flat">
+      ${shown.map(k => html`<button key=${k} class=${'tab ' + (tab === k ? 'on' : '')} onClick=${() => go(k)}><${Icon} n=${TAB[k]?.[2]} />${TAB[k]?.[1]}${badge(k)}</button>`)}
+      <div class="menu"><button class="tab" onClick=${() => setMore(!more)}>Ещё ▾</button>
+        ${more && html`<div class="menu-scrim" onClick=${() => setMore(false)}></div><div class="pop">
+          ${rest.map(k => html`<button key=${k} onClick=${() => go(k)}><${Icon} n=${TAB[k][2]} />${TAB[k][1]}${badge(k)}</button>`)}</div>`}</div>
+    </div>`;
+  }
+  return html`<nav class="vmenu" aria-label="Разделы сервера">
+    ${GROUPS.map(([title, keys]) => html`<div class="grp" key=${title}><div class="gh">${title}</div>
+      ${keys.map(k => html`<button key=${k} class=${'vi ' + (tab === k ? 'on' : '')} onClick=${() => go(k)}><${Icon} n=${TAB[k][2]} size=${16} />${TAB[k][1]}${badge(k)}</button>`)}</div>`)}
+  </nav>`;
+}
+
+/* Вид C: шкалы ресурсов сервера над содержимым */
+function Gauges({ s }) {
+  const cap = memBytes(s.memory);
+  const run = s.state === 'running';
+  return html`<div class="card gauges">
+    <div class="g"><div class="l">CPU</div><div class="v">${s.cpu != null ? s.cpu + '%' : '—'}</div><${Meter} pct=${s.cpu || 0} /></div>
+    <div class="g"><div class="l">Память</div><div class="v">${s.mem ? fmtBytes(s.mem) : '—'} <span class="muted" style="font-weight:450">/ ${s.memory}</span></div><${Meter} pct=${cap && s.mem ? (s.mem / cap) * 100 : 0} /></div>
+    <div class="g"><div class="l">Игроки</div><div class="v">${s.players != null ? `${s.players}${s.maxPlayers ? ' / ' + s.maxPlayers : ''}` : '—'}</div><${Meter} pct=${s.players && s.maxPlayers ? (s.players / s.maxPlayers) * 100 : 0} /></div>
+    <div class="g"><div class="l">Состояние</div><div class="v">${run ? 'работает ' + uptime(s.startedAt) : 'остановлен'}</div></div>
+  </div>`;
+}
 
 function Menu({ children }) {
   const [open, setOpen] = useState(false);
@@ -23,6 +70,9 @@ function Menu({ children }) {
 export function ServerPage({ id, tab }) {
   const [s, setS] = useState(null);
   const [coverOpen, setCoverOpen] = useState(null);
+  const [dlg, setDlg] = useState(null); // 'migrate' | 'template'
+  const [nodes] = useNodes();
+  const ui = useUi();
   const load = async () => {
     try { setS(await api('/servers/' + id)); }
     catch (e) {
@@ -59,6 +109,8 @@ export function ServerPage({ id, tab }) {
     players: () => html`<${PlayersTab} s=${s} />`,
     config: () => html`<${ConfigTab} s=${s} reload=${load} />`,
     mods: () => html`<${ModsTab} s=${s} reload=${load} />`,
+    updates: () => html`<${UpdatesTab} s=${s} reload=${load} act=${act} />`,
+    map: () => html`<${MapTab} s=${s} reload=${load} act=${act} />`,
     backups: () => html`<${BackupsTab} s=${s} />`,
     schedule: () => html`<${ScheduleTab} s=${s} />`,
     network: () => html`<${NetworkTab} s=${s} reload=${load} />`,
@@ -89,17 +141,22 @@ export function ServerPage({ id, tab }) {
           <button onClick=${() => setCoverOpen('logo')}><${Icon} n="cube" />${s.logo ? 'Изменить значок' : 'Добавить значок'}</button>
           <button onClick=${() => setCoverOpen('cover')}><${Icon} n="upload" />${s.cover ? 'Изменить обложку' : 'Добавить обложку'}</button>
           <button onClick=${clone}><${Icon} n="clone" />Клонировать сервер</button>
+          <button onClick=${() => setDlg('template')}><${Icon} n="layers" />Сохранить как шаблон</button>
+          ${nodes && nodes.length > 0 && html`<button onClick=${() => setDlg('migrate')}><${Icon} n="swap" />Перенести на другую машину</button>`}
           <button onClick=${async () => (await askConfirm('Контейнер будет пересоздан (мир сохранится). Это применит обновлённый образ. Продолжить?')) && act('recreate')}><${Icon} n="refresh" />Пересоздать контейнер</button>
           <hr /><button class="red" onClick=${del}><${Icon} n="trash" />Удалить сервер</button>
         </${Menu}>
       </div>
     </div>
+    ${dlg === 'migrate' && html`<${MigrateDialog} s=${s} nodes=${nodes || []} onClose=${() => setDlg(null)} onStarted=${() => { setDlg(null); load(); }} />`}
+    ${dlg === 'template' && html`<${SaveTemplateDialog} s=${s} onClose=${() => setDlg(null)} />`}
+    <${MigrationCard} s=${s} />
     ${s.error && html`<div class="banner err"><b>Ошибка:</b> ${s.error}</div>`}
     ${s.outdated && html`<div class="banner warn flex"><span class="grow">Настройки изменены. Они применятся при следующем запуске.</span>
       ${up && html`<${Btn} kind="sm" icon="restart" disabled=${!!s.busy} onClick=${() => act('restart')}>Перезапустить сейчас</${Btn}>`}</div>`}
-    <div class="tabs">${TABS.map(([k, l, ic]) => html`<button key=${k} class=${'tab ' + (tab === k ? 'on' : '')}
-      onClick=${() => (location.hash = `#/s/${id}/${k}`)}><${Icon} n=${ic} />${l}</button>`)}</div>
-    ${body()}
+    ${ui === 'c' && html`<${Gauges} s=${s} />`}
+    ${ui === 'a' ? html`<${SectionNav} s=${s} id=${id} tab=${tab} ui=${ui} /><div style="margin-top:20px">${body()}</div>`
+      : html`<div class="svlayout"><${SectionNav} s=${s} id=${id} tab=${tab} ui=${ui} /><div class="svbody">${body()}</div></div>`}
   </div>`;
 }
 

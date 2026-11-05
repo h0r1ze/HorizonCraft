@@ -16,6 +16,11 @@ import * as P from './proxy.js';
 import * as M from '../public/mc.js';
 import * as chat from './chat.js';
 import * as nodes from './nodes.js';
+import * as transfer from './transfer.js';
+import * as mapMod from './map.js';
+import * as migrateMod from './migrate.js';
+import * as updatesMod from './updates.js';
+import * as templatesMod from './templates.js';
 import { agentAuth, AGENT, VERSION } from './agent.js';
 
 const h = fn => (req, res, next) =>
@@ -141,12 +146,48 @@ function checkPorts(cfg, others) {
   const routerOn = store.get().servers.some(s => s.id !== cfg.id && s.domain) || cfg.domain;
   if (routerOn && cfg.port === 25565) throw bad('Порт 25565 зарезервирован под маршрутизатор доменов');
 }
-const nextPort = () => {
+/** Порты хоста, которые уже опубликованы контейнерами Docker (в том числе чужими). */
+const dockerPorts = async () => { try { return await dk.publishedPorts(); } catch { return new Set(); } };
+/** Следующий свободный порт: не занят ни серверами панели, ни другими контейнерами на этой машине. */
+const nextPort = async () => {
   const used = new Set(store.get().servers.map(s => s.port));
+  for (const p of await dockerPorts()) used.add(p);
   let p = 25570;
   while (used.has(p)) p++;
   return p;
 };
+
+// ---------- расписание ----------
+function cleanTasks(list, current = []) {
+  const old = new Map((current || []).map(t => [t.id, t]));
+  return (Array.isArray(list) ? list : []).slice(0, 20).map(t => {
+    if (!['backup', 'restart', 'command'].includes(t.kind)) throw bad('Неизвестный тип задачи');
+    const mode = t.mode === 'interval' ? 'interval' : 'daily';
+    const time = /^([01]\d|2[0-3]):[0-5]\d$/.test(t.time) ? t.time : '04:00';
+    const hours = Math.min(168, Math.max(1, parseInt(t.hours) || 6));
+    const command = String(t.command || '').replace(/[\r\n]/g, ' ').trim().slice(0, 200);
+    if (t.kind === 'command' && !command) throw bad('Для задачи «команда» укажите команду');
+    const prev = old.get(t.id);
+    return {
+      id: prev ? prev.id : crypto.randomBytes(4).toString('hex'),
+      kind: t.kind, mode, time, hours, command, enabled: !!t.enabled,
+      keep: Math.min(50, Math.max(1, parseInt(t.keep) || 7)),
+      lastRun: prev?.lastRun || Date.now(), lastRunDay: prev?.lastRunDay || '', lastStatus: prev?.lastStatus || '',
+    };
+  });
+}
+
+/** Удаляет сервер: контейнер, запись и, по желанию, файлы. */
+async function removeServer(cfg, withData) {
+  await dk.remove(cfg.id);
+  const st = store.get();
+  st.servers = st.servers.filter(x => x.id !== cfg.id);
+  store.save();
+  if (withData) fs.rmSync(dk.serverDir(cfg.id), { recursive: true, force: true });
+  for (const sm of [false, true]) fs.rmSync(coverFile(cfg.id, sm), { force: true });
+  fs.rmSync(logoFile(cfg.id), { force: true });
+  dk.syncRouter().catch(e => console.error(e));
+}
 
 // ---------- обложки ----------
 const COVERS = path.join(dk.DATA_DIR, 'covers');
@@ -175,6 +216,91 @@ async function versions() {
   const j = await r.json();
   vCache = { at: Date.now(), list: j.versions.filter(v => v.type === 'release').map(v => v.id) };
   return vCache.list;
+}
+
+// ---------- перенос и шаблоны: «портативное» описание сервера ----------
+/** Описание сервера, которое можно передать на другую машину: без пароля RCON, id и привязки к этой машине. */
+function portable(cfg) {
+  const { rconPassword, id, createdAt, cover, logo, iconSynced, ...rest } = JSON.parse(JSON.stringify(cfg));
+  const img = (has, f) => (has && fs.existsSync(f) ? fs.readFileSync(f).toString('base64') : undefined);
+  return { ...rest, images: { cover: img(cover, coverFile(cfg.id)), logo: img(logo, logoFile(cfg.id)) } };
+}
+
+const PORTABLE_KEYS = ['name', 'nameFmt', 'motd', 'type', 'version', 'memory', 'javaTag', 'loaderVersion', 'cfSlug', 'cfFileId', 'cfMods', 'modrinthMods', 'extraPorts', 'props', 'customEnv'];
+
+function cleanTags(t) {
+  const out = {};
+  if (!t || typeof t !== 'object') return out;
+  const cl = x => { const s = String(x ?? '').replace(/[\r\n§]/g, ' ').trim(); return s.length > 120 || M.strip(s).length > 24 ? '' : s; };
+  for (const [nick, v] of Object.entries(t).slice(0, 500)) {
+    if (!/^[A-Za-z0-9_.]{1,32}$/.test(nick)) continue;
+    out[nick] = { prefix: cl(v?.prefix), suffix: cl(v?.suffix), color: v?.color && M.COLOR_NAME[v.color] ? String(v.color) : '' };
+  }
+  return out;
+}
+
+async function restoreImages(cfg, im) {
+  if (!im || typeof im !== 'object') return;
+  try {
+    const decode = b64 => (typeof b64 === 'string' && b64.length < 6e6 ? Buffer.from(b64, 'base64') : null);
+    const cover = decode(im.cover), logo = decode(im.logo);
+    if (cover?.length) {
+      const meta = await sharp(cover, { limitInputPixels: 50e6 }).metadata();
+      if (meta.format === 'webp') {
+        fs.mkdirSync(COVERS, { recursive: true });
+        fs.writeFileSync(coverFile(cfg.id), cover);
+        await sharp(cover).resize(640, 360, { fit: 'cover' }).webp({ quality: 76, effort: 4 }).toFile(coverFile(cfg.id, true));
+        cfg.cover = { v: Date.now(), bytes: cover.length };
+      }
+    }
+    if (logo?.length) {
+      const meta = await sharp(logo, { limitInputPixels: 50e6 }).metadata();
+      if (meta.format === 'webp') {
+        fs.mkdirSync(COVERS, { recursive: true });
+        fs.writeFileSync(logoFile(cfg.id), logo);
+        cfg.logo = { v: Date.now(), glow: await glowFrom(logo), bytes: logo.length };
+      }
+    }
+  } catch (e) { console.error('images', e.message); }
+}
+
+/** Превращает принятую передачу (описание + файлы) в настоящий сервер на этой машине. */
+async function finishStaged(token, { start = false, name } = {}) {
+  const { dir, root, config: c } = transfer.staged(token);
+  const pick = {};
+  for (const k of PORTABLE_KEYS) if (c[k] !== undefined && c[k] !== null) pick[k] = c[k];
+  if (!pick.nameFmt || name) delete pick.nameFmt;
+  if (name) pick.name = name;
+  const o = sanitize(pick);
+  if (!o.type) throw bad('В описании нет типа сервера');
+  if (o.type === 'AUTO_CURSEFORGE' && !o.cfSlug) throw bad('В описании сборки CurseForge не указана сборка');
+  if (o.type === 'AUTO_CURSEFORGE' && !store.get().settings.cfApiKey) throw bad('На этой машине не задан ключ CurseForge: добавьте его в «Настройках»');
+  const servers = store.get().servers;
+  const cfg = {
+    name: 'Перенесённый сервер', memory: '4G', javaTag: 'auto', loaderVersion: '',
+    cfSlug: '', cfFileId: '', cfMods: '', modrinthMods: '', extraPorts: '', domain: '', props: {}, customEnv: {},
+    ...o, port: Number(c.port) || 0,
+    id: crypto.randomBytes(4).toString('hex'), rconPassword: crypto.randomBytes(12).toString('hex'),
+    createdAt: new Date().toISOString(),
+  };
+  try {
+    sanitize({ port: cfg.port }); checkPorts(cfg, servers);
+    if ((await dockerPorts()).has(cfg.port)) throw new Error('порт занят другим контейнером');
+  } catch { cfg.port = await nextPort(); }
+  if (Array.isArray(c.schedule)) cfg.schedule = cleanTasks(c.schedule);
+  if (c.tags) cfg.tags = cleanTags(c.tags);
+  if (c.map?.on) cfg.map = { on: true, port: await mapMod.allocPort(), added: !!c.map.added };
+  const dest = dk.serverDir(cfg.id);
+  fs.mkdirSync(path.dirname(dest), { recursive: true });
+  fs.rmSync(dest, { recursive: true, force: true });
+  if (root) fs.renameSync(root, dest); else fs.mkdirSync(dest, { recursive: true });
+  await restoreImages(cfg, c.images);
+  fs.rmSync(dir, { recursive: true, force: true });
+  await imp.chown(dest);
+  servers.push(cfg);
+  store.save();
+  if (start) run(cfg.id, 'Запуск…', () => dk.start(cfg));
+  return view(cfg);
 }
 
 export function verify(token) {
@@ -429,16 +555,17 @@ export function createRouter() {
 
   r.post('/servers', h(async (req, res) => {
     const { nodeId, ...b } = req.body || {};
+    if (b.templateId) return res.json(await templatesMod.createServer({ ...b, nodeId }, ctx));
     if (nodeId && nodeId !== 'local') { // создание на ноде: агент делает всё сам (порт, папка, образ)
       const n = nodes.get(String(nodeId));
       if (!n) throw bad('Нода не найдена', 404);
       const created = await nodes.json(n, 'POST', '/servers', b, 30000);
       nodes.place(created.id, n.id);
-      nodes.refresh(n);
+      await nodes.refresh(n);
       return res.json({ ...created, node: nodes.tag(n) });
     }
     const base = {
-      name: 'Новый сервер', type: 'PAPER', version: 'LATEST', memory: '4G', port: nextPort(),
+      name: 'Новый сервер', type: 'PAPER', version: 'LATEST', memory: '4G', port: await nextPort(),
       javaTag: 'auto', cfSlug: '', cfFileId: '', cfMods: '', modrinthMods: '', extraPorts: '', domain: '',
       props: { MOTD: 'Сервер на HorizonCraft', MAX_PLAYERS: '20', DIFFICULTY: 'normal', MODE: 'survival', ONLINE_MODE: 'TRUE' },
       customEnv: {},
@@ -552,14 +679,7 @@ export function createRouter() {
   }));
 
   r.delete('/servers/:id', h(async (req, res) => {
-    await dk.remove(req.cfg.id);
-    const s = store.get();
-    s.servers = s.servers.filter(x => x.id !== req.cfg.id);
-    store.save();
-    if (req.query.data === '1') fs.rmSync(dk.serverDir(req.cfg.id), { recursive: true, force: true });
-    for (const sm of [false, true]) fs.rmSync(coverFile(req.cfg.id, sm), { force: true });
-    fs.rmSync(logoFile(req.cfg.id), { force: true });
-    dk.syncRouter().catch(e => console.error(e));
+    await removeServer(req.cfg, req.query.data === '1');
     res.json({ ok: true });
   }));
 
@@ -805,7 +925,7 @@ export function createRouter() {
     if (!o.type || o.type === 'AUTO_CURSEFORGE') throw bad('Выберите тип сервера');
     if (!o.version) throw bad('Укажите версию Minecraft');
     const cfg = {
-      name: 'Загруженный сервер', memory: '4G', port: nextPort(), javaTag: 'auto', loaderVersion: '',
+      name: 'Загруженный сервер', memory: '4G', port: await nextPort(), javaTag: 'auto', loaderVersion: '',
       cfSlug: '', cfFileId: '', cfMods: '', modrinthMods: '', extraPorts: '', domain: '',
       props: {}, customEnv: {}, ...o,
       id: crypto.randomBytes(4).toString('hex'), rconPassword: crypto.randomBytes(12).toString('hex'),
@@ -854,7 +974,7 @@ export function createRouter() {
     const cfg = {
       ...JSON.parse(JSON.stringify(src)), cover: undefined, logo: undefined, iconSynced: undefined, nameFmt: '', name, id: crypto.randomBytes(4).toString('hex'),
       rconPassword: crypto.randomBytes(12).toString('hex'), createdAt: new Date().toISOString(),
-      port: nextPort(), domain: '', schedule: [],
+      port: await nextPort(), domain: '', schedule: [],
     };
     store.get().servers.push(cfg);
     store.save();
@@ -894,25 +1014,9 @@ export function createRouter() {
   // ---------- расписание ----------
   r.get('/servers/:id/schedule', (req, res) => res.json(req.cfg.schedule || []));
   r.put('/servers/:id/schedule', h(async (req, res) => {
-    const old = new Map((req.cfg.schedule || []).map(t => [t.id, t]));
-    const tasks = (Array.isArray(req.body.tasks) ? req.body.tasks : []).slice(0, 20).map(t => {
-      if (!['backup', 'restart', 'command'].includes(t.kind)) throw bad('Неизвестный тип задачи');
-      const mode = t.mode === 'interval' ? 'interval' : 'daily';
-      const time = /^([01]\d|2[0-3]):[0-5]\d$/.test(t.time) ? t.time : '04:00';
-      const hours = Math.min(168, Math.max(1, parseInt(t.hours) || 6));
-      const command = String(t.command || '').replace(/[\r\n]/g, ' ').trim().slice(0, 200);
-      if (t.kind === 'command' && !command) throw bad('Для задачи «команда» укажите команду');
-      const prev = old.get(t.id);
-      return {
-        id: prev ? prev.id : crypto.randomBytes(4).toString('hex'),
-        kind: t.kind, mode, time, hours, command, enabled: !!t.enabled,
-        keep: Math.min(50, Math.max(1, parseInt(t.keep) || 7)),
-        lastRun: prev?.lastRun || Date.now(), lastRunDay: prev?.lastRunDay || '', lastStatus: prev?.lastStatus || '',
-      };
-    });
-    req.cfg.schedule = tasks;
+    req.cfg.schedule = cleanTasks(req.body.tasks, req.cfg.schedule);
     store.save();
-    res.json(tasks);
+    res.json(req.cfg.schedule);
   }));
 
   // ---------- образы ----------
@@ -924,6 +1028,35 @@ export function createRouter() {
     res.json({ ok: true, tags: [...tags] });
   }));
   r.get('/images/status', (req, res) => res.json({ busy: busy.get('images') || null, error: errs.get('images') || null }));
+
+  // ---------- перенос сервера между машинами: сторона источника и сторона приёма ----------
+  r.get('/servers/:id/portable', h(async (req, res) => res.json(portable(req.cfg))));
+  r.get('/servers/:id/export', h(async (req, res) => {
+    const dirs = req.query.dirs ? String(req.query.dirs).split(',').filter(Boolean).slice(0, 16) : null;
+    const x = transfer.exportStream(req.cfg.id, { dirs, exclude: req.query.lean === '1' ? ['./plugins/dynmap/web/tiles'] : [] });
+    if (!x) throw bad('Нечего упаковывать', 404);
+    res.set({ 'Content-Type': 'application/gzip', 'Content-Disposition': `attachment; filename="${req.cfg.id}.tar.gz"`, 'Cache-Control': 'no-store' });
+    res.on('close', () => x.kill());
+    x.done.then(d => { if (!d.ok) { console.error('export', d.err); res.destroy(); } });
+    x.stream.on('error', () => res.destroy());
+    x.stream.pipe(res);
+  }));
+  r.post('/migrate/begin', h(async (req, res) => {
+    const c = req.body?.config;
+    if (!c || typeof c !== 'object' || Array.isArray(c)) throw bad('Нет описания сервера');
+    res.json({ token: transfer.begin(c) });
+  }));
+  r.put('/migrate/:token/data', h(async (req, res) => res.json(await transfer.receive(req.params.token, req))));
+  r.post('/migrate/:token/finish', h(async (req, res) => {
+    res.json(await finishStaged(req.params.token, { start: !!req.body?.start, name: req.body?.name ? String(req.body.name).slice(0, 40) : undefined }));
+  }));
+
+  // Всё, что нужно новым разделам (перенос, обновления, карта, шаблоны), из этого модуля.
+  const ctx = { h, bad, view, sanitize, finishStaged, portable, removeServer, nextPort, cleanTasks, coverFile, logoFile, run, busy, errs };
+  migrateMod.register(r, ctx);
+  updatesMod.register(r, ctx);
+  mapMod.register(r, ctx);
+  templatesMod.register(r, ctx);
 
   return r;
 }
