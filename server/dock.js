@@ -10,6 +10,8 @@ import * as P from './proxy.js';
 import crypto from 'crypto';
 import * as store from './store.js';
 import sharp from 'sharp';
+
+sharp.cache(false); // картинки на диске меняются, пока панель работает: кэш sharp по пути файла отдавал бы старые
 import * as M from '../public/mc.js';
 
 export const docker = new Docker({ socketPath: '/var/run/docker.sock' });
@@ -153,7 +155,9 @@ export async function syncIcon(cfg) {
   const dst = path.join(serverDir(cfg.id), 'server-icon.png');
   try {
     if (fs.existsSync(logoPath(cfg.id))) {
-      const png = await sharp(logoPath(cfg.id)).resize(64, 64, { fit: 'cover' }).png({ compressionLevel: 9 }).toBuffer();
+      // Файл читается в память заново: sharp по умолчанию кэширует разбор файла по его пути, и после замены
+      // логотипа панель продолжала бы записывать в server-icon.png старую картинку.
+      const png = await sharp(fs.readFileSync(logoPath(cfg.id))).resize(64, 64, { fit: 'cover' }).png({ compressionLevel: 9 }).toBuffer();
       fs.mkdirSync(serverDir(cfg.id), { recursive: true });
       fs.writeFileSync(dst, png);
       try { fs.chownSync(dst, 1000, 1000); } catch {}

@@ -80,7 +80,9 @@ export function CoverEditor({ s, kind = 'cover', onClose, onSaved }) {
       const r = await fetch(url, { method: 'POST', credentials: 'same-origin', headers: { 'Content-Type': blob.type }, body: blob });
       const d = await r.json().catch(() => ({}));
       if (!r.ok) throw new Error(d.error || 'Не удалось сохранить');
-      toast(logo ? 'Значок сохранён' : 'Обложка сохранена');
+      const up = s.state === 'running' || s.state === 'starting';
+      toast(logo ? (up ? 'Значок сохранён. В списке игры он обновится после перезапуска сервера' : 'Значок сохранён')
+        : up && asIcon ? 'Обложка сохранена. Значок в списке игры обновится после перезапуска сервера' : 'Обложка сохранена');
       onSaved(d);
     } catch (e) { toast(e.message, 'err'); }
     setBusy(false);
