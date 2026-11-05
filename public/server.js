@@ -742,7 +742,7 @@ function ScheduleTab({ s }) {
   const t = edit?.t;
   const setT = o => setEdit({ ...edit, t: { ...edit.t, ...o } });
   return html`<div class="col">
-    <div class="row"><div class="grow muted">Автоматические задачи выполняются по времени панели (Москва).</div>
+    <div class="row"><div class="grow muted">Автоматические задачи выполняются по времени панели (часовой пояс задаётся переменной TZ в файле .env).</div>
       <${Btn} kind="primary" icon="plus" onClick=${() => setEdit({ idx: null, t: { ...blank } })}>Добавить задачу</${Btn}></div>
     ${tasks.length === 0 ? html`<div class="card empty"><div class="ico"><${Icon} n="clock" size=${30} /></div><h2>Задач нет</h2>
         <p style="margin:0 0 16px">Например, ежедневная копия мира в 4 утра и перезапуск после неё.</p>

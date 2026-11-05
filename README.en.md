@@ -12,6 +12,10 @@ Create, configure and maintain multiple servers from your browser. No Java, port
 
 **English** · [Русский](README.md)
 
+<br>
+
+<img src="docs/dashboard.png" alt="HorizonCraft panel: servers overview" width="860">
+
 </div>
 
 > [!NOTE]
@@ -78,6 +82,29 @@ Example: `PANEL_PORT=9090 ADMIN_PASSWORD=MySecret123 ./install.sh`
 | 📊 **Monitoring** | CPU, memory and disk usage for the host and each server |
 | 🎨 **Looks** | Server covers and icons, coloured MOTD editor, several dark and light panel themes |
 | 🔒 **Download proxy** | Fetch modpacks and mods through VLESS (3x-ui subscription or `vless://` link) if sites are blocked where you live |
+
+## 📸 Screenshots
+
+<table>
+  <tr>
+    <td width="50%"><img src="docs/server-overview.png" alt="Server overview"><br><sub><b>Server overview.</b> Players, CPU and memory over 30 minutes, quick actions</sub></td>
+    <td width="50%"><img src="docs/console.png" alt="Console"><br><sub><b>Console.</b> Live log and command input</sub></td>
+  </tr>
+  <tr>
+    <td width="50%"><img src="docs/new-server.png" alt="Create a server"><br><sub><b>New server.</b> Paper, Vanilla, Purpur, Fabric, Forge, NeoForge and CurseForge packs</sub></td>
+    <td width="50%"><img src="docs/mods.png" alt="Mods"><br><sub><b>Mods.</b> CurseForge search and Modrinth projects</sub></td>
+  </tr>
+  <tr>
+    <td width="50%"><img src="docs/network.png" alt="Network and domain"><br><sub><b>Network & domain.</b> Ports, domains via mc-router, per-server proxy</sub></td>
+    <td width="50%"><img src="docs/files.png" alt="File manager"><br><sub><b>Files.</b> Browse, edit, upload and extract archives</sub></td>
+  </tr>
+  <tr>
+    <td colspan="2" align="center"><img src="docs/themes.png" alt="Themes" width="70%"><br><sub><b>Themes.</b> Ten dark and light themes</sub></td>
+  </tr>
+</table>
+
+> [!NOTE]
+> Screenshots use demo data: addresses, covers and the console log text were replaced.
 
 ## 📋 Requirements
 

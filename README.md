@@ -12,6 +12,10 @@
 
 [English](README.en.md) · **Русский**
 
+<br>
+
+<img src="docs/dashboard.png" alt="Панель HorizonCraft: обзор серверов" width="860">
+
 </div>
 
 ---
@@ -82,6 +86,29 @@ docker compose up -d --build
 
 > [!NOTE]
 > Интерфейс панели пока только на русском языке.
+
+## 📸 Скриншоты
+
+<table>
+  <tr>
+    <td width="50%"><img src="docs/server-overview.png" alt="Обзор сервера"><br><sub><b>Обзор сервера.</b> Игроки, процессор и память за 30 минут, быстрые действия</sub></td>
+    <td width="50%"><img src="docs/console.png" alt="Консоль"><br><sub><b>Консоль.</b> Журнал в реальном времени и отправка команд</sub></td>
+  </tr>
+  <tr>
+    <td width="50%"><img src="docs/new-server.png" alt="Создание сервера"><br><sub><b>Новый сервер.</b> Paper, Vanilla, Purpur, Fabric, Forge, NeoForge и сборки CurseForge</sub></td>
+    <td width="50%"><img src="docs/mods.png" alt="Моды"><br><sub><b>Моды.</b> Поиск на CurseForge и установка проектов Modrinth</sub></td>
+  </tr>
+  <tr>
+    <td width="50%"><img src="docs/network.png" alt="Сеть и домен"><br><sub><b>Сеть и домен.</b> Порты, домены через mc-router, прокси для сервера</sub></td>
+    <td width="50%"><img src="docs/files.png" alt="Файловый менеджер"><br><sub><b>Файлы.</b> Просмотр, правка, загрузка и распаковка архивов</sub></td>
+  </tr>
+  <tr>
+    <td colspan="2" align="center"><img src="docs/themes.png" alt="Темы оформления" width="70%"><br><sub><b>Темы.</b> Десять тёмных и светлых тем на выбор</sub></td>
+  </tr>
+</table>
+
+> [!NOTE]
+> Скриншоты сделаны на демонстрационных данных: адреса, обложки и текст журнала в консоли заменены.
 
 ## 📋 Требования
 
