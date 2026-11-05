@@ -32,7 +32,7 @@ h1 { font-size: 26px; } h2 { font-size: 16px; } h3 { font-size: 14px; }
 .nav .count { margin-left: auto; font-size: 12px; background: var(--panel3); color: var(--muted); padding: 0 8px; border-radius: 99px; }
 .side .sp { flex: 1; }
 .sidefoot { border-top: 1px solid var(--line); padding-top: 10px; margin-top: 8px; display: flex; flex-direction: column; gap: 4px; }
-.main { padding: 30px 38px 70px; max-width: 1240px; width: 100%; animation: fade .25s ease; }
+.main { padding: 30px 38px 70px; max-width: 1240px; width: 100%; margin: 0 auto; animation: fade .25s ease; }
 @keyframes fade { from { opacity: 0; transform: translateY(4px); } }
 .head { display: flex; align-items: center; gap: 14px; margin-bottom: 24px; flex-wrap: wrap; }
 .head .sub { color: var(--muted); margin-top: 2px; }
@@ -379,7 +379,7 @@ tr.click:hover td { background: var(--panel2); }
 :root[data-ui="a"] .side .nav { width: 46px; height: 44px; padding: 0; justify-content: center; }
 :root[data-ui="a"] .nav.on::before { left: -10px; }
 :root[data-ui="a"] .sidefoot { align-items: center; border-top: 0; }
-:root[data-ui="a"] .main { max-width: none; padding: 24px 34px 60px; }
+:root[data-ui="a"] .main { max-width: 1680px; padding: 24px 34px 60px; }
 :root[data-ui="a"] .card, :root[data-ui="a"] .tile { border-radius: 12px; box-shadow: none; }
 :root[data-ui="a"] .card { padding: 18px; }
 :root[data-ui="a"] h1 { font-size: 24px; font-weight: 700; }
