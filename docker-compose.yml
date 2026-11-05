@@ -1,0 +1,17 @@
+services:
+  panel:
+    build: .
+    image: horizoncraft:latest
+    container_name: horizoncraft
+    restart: unless-stopped
+    ports:
+      - "${PANEL_PORT:-8088}:8088"
+    environment:
+      # Путь к данным ДОЛЖЕН быть абсолютным и одинаковым на хосте и в контейнере:
+      # панель сама создаёт контейнеры серверов и монтирует им папки по этому пути.
+      - DATA_DIR=${DATA_DIR:?Укажите DATA_DIR в файле .env (запустите ./install.sh)}
+      - TZ=${TZ:-UTC}
+      - ADMIN_PASSWORD=${ADMIN_PASSWORD:-}
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock
+      - ${DATA_DIR}:${DATA_DIR}
