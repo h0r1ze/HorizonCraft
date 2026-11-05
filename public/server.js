@@ -1,4 +1,4 @@
-import { html, useState, useEffect, useRef, askConfirm, askText, Icon, Btn, Field, Toggle, Modal, Spark, Meter, Avatar, toast, StateBadge, TYPE_NAMES, TYPE_COLOR, fmtBytes, addrOf, uptime, ago, copyText, plural, appState } from './ui.js';
+import { html, useState, useEffect, useRef, askConfirm, askText, Icon, Btn, Field, Toggle, Modal, Spark, Meter, Avatar, toast, StateBadge, TYPE_NAMES, TYPE_COLOR, fmtBytes, addrOf, uptime, ago, copyText, plural, appState, isRemote } from './ui.js';
 import { api, getVersions } from './api.js';
 import { ModpackSearch } from './create.js';
 import { ServerProxy } from './proxy.js';
@@ -25,7 +25,10 @@ export function ServerPage({ id, tab }) {
   const [coverOpen, setCoverOpen] = useState(null);
   const load = async () => {
     try { setS(await api('/servers/' + id)); }
-    catch (e) { if (e.status === 404) location.hash = '#/'; }
+    catch (e) {
+      if (e.status === 404) location.hash = '#/';
+      else if (e.status === 502) setS(prev => prev && { ...prev, state: 'unreachable', busy: null, error: e.message }); // нода недоступна
+    }
   };
   useEffect(() => { load(); const t = setInterval(load, 3000); return () => clearInterval(t); }, [id]);
   if (!s) return html`<div class="skeleton" style="height:300px"></div>`;
@@ -72,6 +75,7 @@ export function ServerPage({ id, tab }) {
         <div class="sub row wrap" style="gap:10px;margin-top:4px">
           <span class="chip tc">${TYPE_NAMES[s.type]}${s.type !== 'AUTO_CURSEFORGE' ? ' ' + s.version : ''}</span>
           ${s.type === 'AUTO_CURSEFORGE' && s.cfSlug && html`<span class="chip">${s.cfSlug}</span>`}
+          ${isRemote(s) && html`<span class="chip" title="Сервер работает на ноде"><${Icon} n="server" size=${12} />${s.node.name}</span>`}
           ${s.proxy?.on && html`<span class="chip" title="Прокси включён" style="color:var(--info)"><${Icon} n="globe" size=${12} />прокси: ${s.proxy.scope === 'all' ? 'весь трафик' : 'установка'}</span>`}
           <span class="addr" title="Скопировать" onClick=${() => copyText(addrOf(s))}>${addrOf(s)}<${Icon} n="copy" size=${13} /></span>
           ${s.state === 'running' && html`<span>работает ${uptime(s.startedAt)}</span>`}
@@ -780,7 +784,9 @@ function ScheduleTab({ s }) {
 function NetworkTab({ s, reload }) {
   const { d, set, dirty, save } = useDraft(s, reload, ['port', 'extraPorts', 'domain', 'proxy']);
   if (!d) return null;
-  const host = appState.settings.publicHost || '<ваш внешний IP>';
+  const remote = isRemote(s);
+  const host = remote ? s.node.host : appState.settings.publicHost || '<ваш внешний IP>';
+  const lan = remote ? s.node.host : location.hostname; // машина, на которую пробрасывается порт
   const dom = (d.domain || '').split(',')[0].trim();
   return html`<div class="col">
     <div class="card col"><h2>Порты</h2>
@@ -799,7 +805,7 @@ function NetworkTab({ s, reload }) {
         <div><b>1. DNS-запись</b> у регистратора домена:
           <div class="code" style="margin-top:8px">${dom}   A   ${host === '<ваш внешний IP>' ? '<внешний IP вашей сети>' : host}</div></div>
         <div><b>2. Проброс порта на роутере:</b>
-          <div class="code" style="margin-top:8px">TCP 25565  →  ${location.hostname}:25565</div></div>
+          <div class="code" style="margin-top:8px">TCP 25565  →  ${lan}:25565</div></div>
         <small class="muted">Если внешний IP меняется, используйте DDNS. Подключения по домену принимает маршрутизатор mc-router, он сам направляет игрока на нужный сервер.</small></div>`
       : html`<small class="muted">Без домена игроки заходят по адресу <span class="mono">${host}:${d.port}</span>, для этого нужно пробросить порт ${d.port} на роутере.</small>`}
     </div>

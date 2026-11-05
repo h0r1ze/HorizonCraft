@@ -63,6 +63,8 @@ docker compose up -d --build
 | `HORIZONCRAFT_DIR` | `~/horizoncraft` | Clone target when installing via `curl` |
 | `INSTALL_DOCKER` | unset | `1` installs Docker without asking |
 
+The `--agent` flag turns on agent mode so the machine can be connected as a node, see [Multiple machines](#-multiple-machines-nodes).
+
 Example: `PANEL_PORT=9090 ADMIN_PASSWORD=MySecret123 ./install.sh`
 </details>
 
@@ -76,6 +78,7 @@ Example: `PANEL_PORT=9090 ADMIN_PASSWORD=MySecret123 ./install.sh`
 | 🧩 **Mods** | Search and install from CurseForge and Modrinth |
 | 💾 **Backups** | Manual and scheduled backups, retention limit, one-click restore |
 | ⏰ **Schedules** | Restart (players are warned 30 seconds ahead), backup, or any command on a schedule |
+| 🌍 **Multiple machines (nodes)** | Connect other computers and VPSes and create servers on them. Everything stays in one panel: console, files, backups and players work just like on the main machine |
 | 🌐 **Network & domains** | Many servers behind a single port 25565 by domain (via `mc-router`), extra ports for voice chat or Dynmap |
 | 📁 **Files** | Browse and edit files, upload, extract and download archives |
 | 📦 **Import & clone** | Upload an existing server as an archive, or clone one together with its world |
@@ -99,7 +102,12 @@ Example: `PANEL_PORT=9090 ADMIN_PASSWORD=MySecret123 ./install.sh`
     <td width="50%"><img src="docs/files.png" alt="File manager"><br><sub><b>Files.</b> Browse, edit, upload and extract archives</sub></td>
   </tr>
   <tr>
-    <td colspan="2" align="center"><img src="docs/themes.png" alt="Themes" width="70%"><br><sub><b>Themes.</b> Ten dark and light themes</sub></td>
+    <td width="50%"><img src="docs/nodes-dashboard.png" alt="Overview with nodes"><br><sub><b>Nodes on the overview.</b> Load of every machine and their servers in one list</sub></td>
+    <td width="50%"><img src="docs/nodes-settings.png" alt="Nodes in settings"><br><sub><b>Settings → Nodes.</b> Status, connection check, image updates</sub></td>
+  </tr>
+  <tr>
+    <td width="50%"><img src="docs/nodes-form.png" alt="Connecting a node"><br><sub><b>Connecting a node.</b> Install command, address and token</sub></td>
+    <td width="50%"><img src="docs/themes.png" alt="Themes"><br><sub><b>Themes.</b> Ten dark and light themes</sub></td>
   </tr>
 </table>
 
@@ -116,6 +124,38 @@ Example: `PANEL_PORT=9090 ADMIN_PASSWORD=MySecret123 ./install.sh`
 > [!IMPORTANT]
 > Windows and macOS are not supported: the panel drives Docker through `/var/run/docker.sock` and needs real host paths. On Windows, use WSL2 with Docker running inside Linux.
 
+## 🌍 Multiple machines (nodes)
+
+One panel can manage Minecraft servers on several computers: a home server, a NAS, a rented VPS. A node is a regular HorizonCraft install running in **agent mode**. The main panel connects to it with an address and a token and shows its servers next to its own.
+
+**1. On the second machine** (Linux, only Docker is required):
+
+```bash
+curl -fsSL https://raw.githubusercontent.com/h0r1ze/HorizonCraft/main/install.sh | bash -s -- --agent
+```
+
+At the end the script prints the node's **address** and **token**.
+
+**2. In the main panel:** **Settings → Nodes → Connect a node**, paste the address and token. The panel checks the connection and immediately lists the node's servers.
+
+**3. Create a server on the node:** the **New server** page gets a machine picker. Uploading an existing server archive also works for any node.
+
+<details>
+<summary><b>What works on a node and what doesn't</b></summary>
+
+Requests for servers on a node are forwarded to its agent, so everything local servers have works there: console, players, files, backups, schedules, mods, domains, import and cloning (the copy is created on the same node).
+
+- The CurseForge key set in the main panel is passed to nodes automatically.
+- **VLESS proxy and "Minecraft images"** are configured per node: the proxy in its own panel, images with the **Images** button in the node list.
+- Moving a server from one machine to another is not supported yet: make a backup, download it and upload it to the target node via import.
+- If a node is unreachable, its servers stay in the list marked "Node unreachable". The servers themselves keep running on their machine.
+- Players connect to the node directly; game traffic does not go through the main panel. For a domain, set **Address for players** in the node form.
+- Removing a node from the panel does **not** delete its servers: they keep running and the node can be connected again.
+</details>
+
+> [!WARNING]
+> A node token gives full control over Docker on that machine. Open the node's port in the firewall **only for the main panel's IP** (`sudo ufw allow from <IP> to any port 8088 proto tcp`). Traffic between panels is plain HTTP, so over the internet connect nodes through a VPN (WireGuard, Tailscale) or put a reverse proxy with HTTPS in front of the agent and use an `https://…` address.
+
 ## 🔧 Configuration
 
 Settings live in `.env` next to `docker-compose.yml`. Apply changes with `docker compose up -d`.
@@ -126,6 +166,7 @@ Settings live in `.env` next to `docker-compose.yml`. Apply changes with `docker
 | `DATA_DIR` | Absolute path to data. Don't change it after creating servers without moving the folder |
 | `PANEL_PORT` | Host port of the web panel |
 | `TZ` | Time zone of the panel and servers |
+| `AGENT_TOKEN` | Optional. If set (24+ characters), this panel can be connected as a node. Created by `./install.sh --agent` |
 
 To search and install CurseForge modpacks, get a free API key at [console.curseforge.com](https://console.curseforge.com/) and paste it under **Settings → CurseForge**.
 

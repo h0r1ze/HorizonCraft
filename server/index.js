@@ -9,6 +9,8 @@ import bcrypt from 'bcryptjs';
 import * as store from './store.js';
 import * as dk from './dock.js';
 import { createRouter, verify } from './routes.js';
+import { agentAuth } from './agent.js';
+import * as nodes from './nodes.js';
 import { startServices } from './services.js';
 import { cleanupOld } from './importer.js';
 import { migrate as migrateProxy } from './proxy.js';
@@ -37,14 +39,22 @@ app.use(express.static(path.join(root, 'public')));
 const server = http.createServer(app);
 const wss = new WebSocketServer({ noServer: true });
 
-server.on('upgrade', (req, socket, head) => {
+server.on('upgrade', async (req, socket, head) => {
   const m = /^\/ws\/servers\/([a-f0-9]{8})\/console$/.exec((req.url || '').split('?')[0]);
   const tok = /(?:^|;\s*)mcp_token=([^;]+)/.exec(req.headers.cookie || '')?.[1];
+  let node = null;
   try {
-    if (!m || !tok) throw new Error('no');
-    verify(tok);
-    if (!store.get().servers.some(s => s.id === m[1])) throw new Error('no');
+    if (!m) throw new Error('no');
+    if (!agentAuth(req.headers)) { // главная панель подключается к ноде по токену, браузер по cookie
+      if (!tok) throw new Error('no');
+      verify(tok);
+    }
+    if (!store.get().servers.some(s => s.id === m[1])) {
+      node = await nodes.locate(m[1]);
+      if (!node) throw new Error('no');
+    }
   } catch { socket.write('HTTP/1.1 401 Unauthorized\r\n\r\n'); return socket.destroy(); }
+  if (node) return nodes.proxyWs(node, req, socket, head, wss, m[1]);
   wss.handleUpgrade(req, socket, head, ws => consoleSession(ws, m[1]));
 });
 
@@ -84,6 +94,7 @@ dk.syncRouter().catch(e => console.error('router', e.message));
 for (const c of store.get().servers) dk.syncIcon(c);
 startServices();
 cleanupOld();
+nodes.startPolling();
 
 // Для уже сохранённого ключа выясняем, доступен ли поиск CurseForge.
 (async () => {

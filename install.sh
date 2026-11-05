@@ -4,6 +4,10 @@
 #   ./install.sh                                  из склонированного репозитория
 #   curl -fsSL https://raw.githubusercontent.com/h0r1ze/HorizonCraft/main/install.sh | bash
 #
+# Режим агента (машина станет нодой для главной панели):
+#   ./install.sh --agent
+#   curl -fsSL https://raw.githubusercontent.com/h0r1ze/HorizonCraft/main/install.sh | bash -s -- --agent
+#
 # Переменные (необязательно): ADMIN_PASSWORD, PANEL_PORT, DATA_DIR, TZ,
 #   HORIZONCRAFT_DIR (куда клонировать, по умолчанию ~/horizoncraft), INSTALL_DOCKER=1
 set -euo pipefail
@@ -29,6 +33,18 @@ ask() {
   read -r a </dev/tty || return 1
   [[ "$a" =~ ^[YyДд] ]]
 }
+
+# Случайная строка из букв и цифр заданной длины.
+rand() { LC_ALL=C tr -dc 'A-Za-z0-9' </dev/urandom | head -c "$1" || true; }
+
+AGENT_MODE="${AGENT:-}"
+for arg in "$@"; do
+  case "$arg" in
+    --agent) AGENT_MODE=1 ;;
+    -h|--help) sed -n '2,12p' "${BASH_SOURCE[0]:-/dev/null}" 2>/dev/null | sed 's/^# \{0,1\}//'; exit 0 ;;
+    *) die "Неизвестный параметр: $arg (доступно: --agent)" ;;
+  esac
+done
 
 printf '%s\n' "${G}${B}"
 cat <<'BANNER'
@@ -74,7 +90,6 @@ if [ -n "$SELF" ] && [ -f "$SELF" ] && [ -f "$(dirname "$SELF")/docker-compose.y
 else
   step "Загрузка HorizonCraft в $INSTALL_DIR"
   command -v git >/dev/null 2>&1 || die "Нужен git: sudo apt install git"
-  case "$REPO_URL" in *h0r1ze*) die "В скрипте не указан адрес репозитория. Задайте HORIZONCRAFT_REPO=https://github.com/<вы>/HorizonCraft.git" ;; esac
   if [ -d "$INSTALL_DIR/.git" ]; then
     git -C "$INSTALL_DIR" pull --ff-only
   else
@@ -95,7 +110,7 @@ else
   ADMIN_PASSWORD="${ADMIN_PASSWORD:-}"
 
   if [ -z "$ADMIN_PASSWORD" ]; then
-    ADMIN_PASSWORD="$(LC_ALL=C tr -dc 'A-Za-z0-9' </dev/urandom | head -c 16 || true)"
+    ADMIN_PASSWORD="$(rand 16)"
     NEW_PASS=1
   fi
   [ "${#ADMIN_PASSWORD}" -ge 8 ] || die "Пароль должен быть не короче 8 символов."
@@ -123,6 +138,18 @@ EOF
 fi
 
 envval() { sed -n "s/^$1=//p" .env | tail -n1; }
+
+# Режим агента: токен, по которому главная панель управляет этой машиной.
+if [ -n "$AGENT_MODE" ]; then
+  if [ -z "$(envval AGENT_TOKEN)" ]; then
+    [ -z "$(tail -c1 .env)" ] || printf '\n' >> .env
+    (umask 077; printf 'AGENT_TOKEN=%s\n' "$(rand 48)" >> .env)
+    ok "Включён режим агента (создан AGENT_TOKEN)"
+  else
+    ok "Режим агента уже включён, токен из .env сохранён"
+  fi
+fi
+
 PANEL_PORT="$(envval PANEL_PORT)"; PANEL_PORT="${PANEL_PORT:-8088}"
 DATA_DIR="$(envval DATA_DIR)"
 [ -n "$DATA_DIR" ] || die "В .env не задан DATA_DIR."
@@ -152,7 +179,9 @@ else
   ok "Панель запущена"
 fi
 
-IP="$(hostname -I 2>/dev/null | awk '{print $1}')"
+# Адрес машины в сети. Любой из способов может отсутствовать на минимальной системе, поэтому все с запасом.
+IP="$(hostname -I 2>/dev/null | awk '{print $1}' || true)"
+[ -n "$IP" ] || IP="$(ip -4 route get 1.1.1.1 2>/dev/null | awk '{for (i = 1; i < NF; i++) if ($i == "src") { print $(i + 1); exit }}' || true)"
 IP="${IP:-localhost}"
 
 printf '\n%s%s  Готово!%s\n\n' "$G" "$B" "$N"
@@ -162,6 +191,19 @@ if [ -n "$NEW_PASS" ]; then
   printf '  %sСмените пароль после первого входа: Настройки → Пароль.%s\n' "$Y" "$N"
 else
   printf '  Пароль:        см. ADMIN_PASSWORD в %s/.env (если вы не меняли его в панели)\n' "$PWD"
+fi
+if [ -n "$AGENT_MODE" ]; then
+  cat <<EOF
+
+  ${B}Данные для подключения ноды${N}
+   Адрес:  ${B}${C}http://${IP}:${PANEL_PORT}${N}
+   Токен:  ${B}$(envval AGENT_TOKEN)${N}
+
+   В главной панели откройте ${B}Настройки → Ноды → Подключить ноду${N} и вставьте адрес и токен.
+   ${Y}Токен даёт полный доступ к Docker на этой машине.${N} Откройте порт ${PANEL_PORT} только для главной панели,
+   например: sudo ufw allow from <IP главной панели> to any port ${PANEL_PORT} proto tcp
+   Не выставляйте его в интернет без VPN или обратного прокси с HTTPS.
+EOF
 fi
 cat <<EOF
 

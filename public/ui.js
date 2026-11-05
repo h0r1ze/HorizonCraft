@@ -69,7 +69,7 @@ export function Modal({ title, onClose, children, footer, wide, narrow }) {
   </div>`;
 }
 
-const STATE = { running: 'Работает', starting: 'Запускается', stopped: 'Остановлен', missing: 'Не запускался' };
+const STATE = { running: 'Работает', starting: 'Запускается', stopped: 'Остановлен', missing: 'Не запускался', unreachable: 'Нода недоступна' };
 export const StateBadge = ({ s }) => {
   const key = s.busy ? 'busy' : s.state;
   return html`<span class=${'badge ' + key}>${s.busy || STATE[s.state]}</span>`;
@@ -160,8 +160,11 @@ export const logoUrl = s => (s.logo ? `/api/servers/${s.id}/logo?v=${s.logo.v}` 
 export const Avatar = ({ s, lg }) => s.logo
   ? html`<div class=${'avatar logo ' + (lg ? 'lg' : '')} style=${`--gc:${s.logo.glow};background-image:url(${logoUrl(s)})`}></div>`
   : html`<div class=${'avatar ' + (lg ? 'lg' : '')} style=${`--tc:${TYPE_COLOR[s.type] || '#4ade80'}`}>${(s.name || '?').trim().charAt(0).toUpperCase()}</div>`;
+export const isRemote = s => !!s.node && s.node.id !== 'local';
+/** Адрес, по которому игроки заходят на машину: у сервера на ноде это адрес ноды. */
+export const hostOfServer = s => (isRemote(s) ? s.node.host : appState.settings.publicHost || location.hostname);
 export const addrOf = s => {
-  const host = appState.settings.publicHost || location.hostname;
+  const host = hostOfServer(s);
   const d = (s.domain || '').split(',')[0];
   return d ? d : `${host}:${s.port}`;
 };

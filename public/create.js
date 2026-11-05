@@ -1,4 +1,5 @@
 import { html, useState, useEffect, useRef, Icon, Btn, Field, Meter, toast, TYPE_NAMES, TYPE_COLOR, fmtBytes, appState } from './ui.js';
+import { useNodes, NodePicker } from './nodes.js';
 import { api, getVersions } from './api.js';
 
 const TYPES = [
@@ -45,7 +46,7 @@ export function ModpackSearch({ onPick, kind = 'modpack', loader = '', gameVersi
   </div>`;
 }
 
-function NewServerForm() {
+function NewServerForm({ nodeId }) {
   const [v, setV] = useState({ name: '', type: 'PAPER', version: 'LATEST', memory: 4, cfSlug: '', cfName: '' });
   const [versions, setVersions] = useState([]);
   const [busy, setBusy] = useState(false);
@@ -59,6 +60,7 @@ function NewServerForm() {
       const body = {
         name: v.name.trim() || 'Новый сервер', type: v.type, memory: v.memory + 'G',
         ...(isPack ? { cfSlug: v.cfSlug } : { version: v.version }),
+        ...(nodeId && nodeId !== 'local' ? { nodeId } : {}),
       };
       const s = await api('/servers', { method: 'POST', body });
       if (start) await api(`/servers/${s.id}/action`, { method: 'POST', body: { action: 'start' } });
@@ -110,7 +112,10 @@ function NewServerForm() {
 const IMPORT_TYPES = TYPES.filter(([t]) => t !== 'AUTO_CURSEFORGE');
 const LOADER_LABEL = { FORGE: 'Версия Forge', NEOFORGE: 'Версия NeoForge', FABRIC: 'Версия Fabric Loader' };
 
-function ImportServer() {
+const nodeQuery = id => (id && id !== 'local' ? '?node=' + encodeURIComponent(id) : '');
+
+function ImportServer({ nodeId }) {
+  const [target, setTarget] = useState('local'); // нода, на которую загружен архив: фиксируется в момент загрузки
   const [phase, setPhase] = useState('pick');
   const [pct, setPct] = useState(0);
   const [analyzing, setAnalyzing] = useState(false);
@@ -124,11 +129,11 @@ function ImportServer() {
 
   const upload = file => {
     if (!file) return;
-    setPhase('upload'); setPct(0); setAnalyzing(false);
+    setPhase('upload'); setPct(0); setAnalyzing(false); setTarget(nodeId || 'local');
     const fd = new FormData();
     fd.append('file', file);
     const xhr = new XMLHttpRequest();
-    xhr.open('POST', '/api/import');
+    xhr.open('POST', '/api/import' + nodeQuery(nodeId));
     xhr.upload.onprogress = e => { if (e.lengthComputable) setPct(Math.round((e.loaded / e.total) * 100)); };
     xhr.upload.onload = () => setAnalyzing(true);
     xhr.onload = () => {
@@ -150,13 +155,13 @@ function ImportServer() {
   const confirmImport = async start => {
     setBusy(true);
     try {
-      const s = await api(`/import/${r.token}/confirm`, { method: 'POST', body: { ...f, memory: f.memory + 'G', start } });
+      const s = await api(`/import/${r.token}/confirm${nodeQuery(target)}`, { method: 'POST', body: { ...f, memory: f.memory + 'G', start } });
       location.hash = '#/s/' + s.id;
     } catch (x) { toast(x.message, 'err'); }
     setBusy(false);
   };
   const cancel = async () => {
-    try { await api('/import/' + r.token, { method: 'DELETE' }); } catch {}
+    try { await api('/import/' + r.token + nodeQuery(target), { method: 'DELETE' }); } catch {}
     setR(null); setPhase('pick');
   };
 
@@ -229,12 +234,15 @@ function ImportServer() {
 
 export function CreatePage() {
   const [mode, setMode] = useState('new');
+  const [nodes] = useNodes();
+  const [nodeId, setNodeId] = useState('local');
   return html`<div class="col" style="max-width:900px">
     <div class="head"><${Btn} kind="ghost icon" icon="back" onClick=${() => (location.hash = '#/')} />
       <div class="grow"><h1>Новый сервер</h1><div class="sub">Создайте сервер с нуля или загрузите готовый</div></div></div>
     <div class="seg" style="width:fit-content">
       <button class=${mode === 'new' ? 'on' : ''} onClick=${() => setMode('new')}>Создать с нуля</button>
       <button class=${mode === 'import' ? 'on' : ''} onClick=${() => setMode('import')}>Загрузить свой сервер</button></div>
-    ${mode === 'new' ? html`<${NewServerForm} />` : html`<${ImportServer} />`}
+    <${NodePicker} nodes=${nodes} value=${nodeId} onChange=${setNodeId} />
+    ${mode === 'new' ? html`<${NewServerForm} nodeId=${nodeId} />` : html`<${ImportServer} nodeId=${nodeId} />`}
   </div>`;
 }

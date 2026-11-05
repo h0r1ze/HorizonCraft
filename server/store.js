@@ -13,6 +13,8 @@ export function load() {
   db.settings ??= {};
   db.secret ??= crypto.randomBytes(32).toString('hex');
   db.user ??= null;
+  db.nodes ??= [];      // подключённые внешние машины (ноды)
+  db.placement ??= {};  // id сервера -> id ноды, на которой он живёт
   save();
   return db;
 }

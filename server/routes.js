@@ -15,6 +15,8 @@ import * as imp from './importer.js';
 import * as P from './proxy.js';
 import * as M from '../public/mc.js';
 import * as chat from './chat.js';
+import * as nodes from './nodes.js';
+import { agentAuth, AGENT, VERSION } from './agent.js';
 
 const h = fn => (req, res, next) =>
   Promise.resolve(fn(req, res, next)).catch(e => {
@@ -201,11 +203,51 @@ export function createRouter() {
   r.post('/logout', (req, res) => { res.clearCookie('mcp_token'); res.json({ ok: true }); });
 
   r.use((req, res, next) => {
+    if (agentAuth(req.headers)) return next(); // главная панель обращается к этой как к ноде
     try { verify(req.cookies?.mcp_token); next(); }
     catch { res.status(401).json({ error: 'Требуется вход' }); }
   });
 
-  r.get('/me', (req, res) => res.json({ ok: true }));
+  r.get('/me', (req, res) => res.json({ ok: true, agent: AGENT, version: VERSION }));
+
+  // ---------- ноды: серверы на других машинах ----------
+  r.get('/nodes', h(async (req, res) => {
+    await Promise.all(nodes.all().map(n => nodes.refresh(n, 4000)));
+    res.json(nodes.all().map(nodes.publicNode));
+  }));
+  r.post('/nodes', h(async (req, res) => res.json(nodes.publicNode(await nodes.add(req.body || {})))));
+  r.put('/nodes/:nid', h(async (req, res) => res.json(nodes.publicNode(await nodes.update(req.params.nid, req.body || {})))));
+  r.delete('/nodes/:nid', h(async (req, res) => { nodes.remove(req.params.nid); res.json({ ok: true }); }));
+  r.post('/nodes/:nid/test', h(async (req, res) => {
+    const n = nodes.get(req.params.nid);
+    if (!n) throw bad('Нода не найдена', 404);
+    await nodes.refresh(n);
+    res.json(nodes.publicNode(n));
+  }));
+
+  /* Запросы к серверам, которые живут на ноде, а также загрузка архива (?node=) и обновление образов (?node=)
+     пересылаются агенту. Всё остальное выполняется локально. */
+  const SRV = /^\/servers\/([a-f0-9]{8})(\/|$)/;
+  r.use(h(async (req, res, next) => {
+    let n = null, m;
+    if ((m = SRV.exec(req.path))) {
+      if (!store.get().servers.some(s => s.id === m[1])) n = await nodes.locate(m[1]);
+    } else if (/^\/(import|images)(\/|$)/.test(req.path) && req.query.node && req.query.node !== 'local') {
+      n = nodes.get(String(req.query.node));
+      if (!n) throw bad('Нода не найдена', 404);
+    }
+    if (!n) return next();
+    const exact = m && req.path === `/servers/${m[1]}`;
+    const annotate = (exact && req.method !== 'DELETE') || (m && req.method === 'POST' && req.path.endsWith('/clone'))
+      || (/^\/import\/[a-f0-9]{16}\/confirm$/.test(req.path) && req.method === 'POST');
+    await nodes.proxy(n, req, res, {
+      annotate: annotate ? data => {
+        if (/^[a-f0-9]{8}$/.test(data.id || '')) nodes.place(data.id, n.id);
+        data.node = nodes.tag(n);
+      } : null,
+      onDone: code => { if (exact && req.method === 'DELETE' && code < 300) nodes.unplace(m[1]); },
+    });
+  }));
 
   r.post('/password', h(async (req, res) => {
     const { old, next } = req.body;
@@ -275,6 +317,9 @@ export function createRouter() {
       if (s.cfApiKey) { probe = await probeCurseForge(s.cfApiKey); s.cfSearchOk = searchState(probe); }
     }
     store.save();
+    // Ключ CurseForge нужен и нодам: сборки скачивают они сами.
+    if (b.clearCfApiKey) nodes.broadcast({ clearCfApiKey: true });
+    else if (b.cfApiKey) nodes.broadcast({ cfApiKey: s.cfApiKey });
     res.json({ ok: true, searchOk: s.cfSearchOk ?? null, probe });
   }));
 
@@ -378,11 +423,20 @@ export function createRouter() {
 
   // ---------- серверы ----------
   r.get('/servers', h(async (req, res) => {
-    res.json(await Promise.all(store.get().servers.map(view)));
+    const local = (await Promise.all(store.get().servers.map(view))).map(s => ({ ...s, node: nodes.localTag() }));
+    res.json([...local, ...(await nodes.allServers())]);
   }));
 
   r.post('/servers', h(async (req, res) => {
-    const b = req.body;
+    const { nodeId, ...b } = req.body || {};
+    if (nodeId && nodeId !== 'local') { // создание на ноде: агент делает всё сам (порт, папка, образ)
+      const n = nodes.get(String(nodeId));
+      if (!n) throw bad('Нода не найдена', 404);
+      const created = await nodes.json(n, 'POST', '/servers', b, 30000);
+      nodes.place(created.id, n.id);
+      nodes.refresh(n);
+      return res.json({ ...created, node: nodes.tag(n) });
+    }
     const base = {
       name: 'Новый сервер', type: 'PAPER', version: 'LATEST', memory: '4G', port: nextPort(),
       javaTag: 'auto', cfSlug: '', cfFileId: '', cfMods: '', modrinthMods: '', extraPorts: '', domain: '',

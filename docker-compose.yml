@@ -12,6 +12,8 @@ services:
       - DATA_DIR=${DATA_DIR:?Укажите DATA_DIR в файле .env (запустите ./install.sh)}
       - TZ=${TZ:-UTC}
       - ADMIN_PASSWORD=${ADMIN_PASSWORD:-}
+      # Режим агента: если задан (от 24 символов), эту машину можно подключить нодой к главной панели
+      - AGENT_TOKEN=${AGENT_TOKEN:-}
     volumes:
       - /var/run/docker.sock:/var/run/docker.sock
       - ${DATA_DIR}:${DATA_DIR}

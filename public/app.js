@@ -1,6 +1,7 @@
-import { html, render, useState, useEffect, Icon, Btn, Field, Toasts, Dialogs, toast, StateBadge, Avatar, Spark, Meter, TYPE_NAMES, TYPE_COLOR, addrOf, appState, getTheme, setTheme, THEMES, fmtBytes, fmtUptime, copyText, plural } from './ui.js';
+import { html, render, useState, useEffect, Icon, Btn, Field, Toasts, Dialogs, toast, StateBadge, Avatar, Spark, Meter, TYPE_NAMES, TYPE_COLOR, addrOf, appState, getTheme, setTheme, THEMES, fmtBytes, fmtUptime, copyText, plural, isRemote } from './ui.js';
 import { api } from './api.js';
 import { CreatePage } from './create.js';
+import { NodesStrip, NodesSettings } from './nodes.js';
 import { ProxySettings, PanelProxy } from './proxy.js';
 import { coverUrl } from './cover.js';
 import { ServerName } from './mcfmt.js';
@@ -62,7 +63,8 @@ function ServerCard({ s, act }) {
       <${Avatar} s=${s} />
       <div class="grow"><div class="t trunc"><${ServerName} s=${s} /></div>
         <div class="row wrap" style="gap:6px;margin-top:3px"><span class="chip tc">${TYPE_NAMES[s.type]}</span>
-          ${s.type !== 'AUTO_CURSEFORGE' ? html`<span class="chip">${s.version}</span>` : s.cfSlug && html`<span class="chip trunc" style="max-width:150px">${s.cfSlug}</span>`}</div></div>
+          ${s.type !== 'AUTO_CURSEFORGE' ? html`<span class="chip">${s.version}</span>` : s.cfSlug && html`<span class="chip trunc" style="max-width:150px">${s.cfSlug}</span>`}
+          ${isRemote(s) && html`<span class="chip trunc" style="max-width:150px" title=${'Нода: ' + s.node.name}><${Icon} n="server" size=${12} />${s.node.name}</span>`}</div></div>
       <${StateBadge} s=${s} />
     </div>
     <div class="meta">
@@ -77,7 +79,7 @@ function ServerCard({ s, act }) {
     <div class="row">
       ${up ? html`<${Btn} kind="sm" icon="stop" disabled=${!!s.busy} onClick=${e => act(e, s, 'stop')}>Стоп</${Btn}>
                   <${Btn} kind="sm" icon="restart" disabled=${!!s.busy} onClick=${e => act(e, s, 'restart')}>Перезапуск</${Btn}>`
-        : html`<${Btn} kind="sm primary" icon="play" disabled=${!!s.busy} onClick=${e => act(e, s, 'start')}>Запустить</${Btn}>`}
+        : html`<${Btn} kind="sm primary" icon="play" disabled=${!!s.busy || s.state === 'unreachable'} onClick=${e => act(e, s, 'start')}>Запустить</${Btn}>`}
       <span class="right faint" style="font-size:12px">Открыть →</span>
     </div>
   </div>`;
@@ -99,6 +101,7 @@ function Dashboard() {
       <div class="sub">${list ? `${list.length} ${plural(list.length, 'сервер', 'сервера', 'серверов')} · работает: ${running} · игроков онлайн: ${players}` : 'Загрузка…'}</div></div>
       <${Btn} kind="primary" icon="plus" onClick=${() => (location.hash = '#/new')}>Создать сервер</${Btn}></div>
     <${HostTiles} />
+    <${NodesStrip} />
     <div class="row" style="margin:6px 0 14px"><h2>Серверы</h2></div>
     ${!list ? html`<div class="grid">${[1, 2].map(i => html`<div class="skeleton" key=${i} style="height:230px"></div>`)}</div>`
       : list.length === 0 ? html`<div class="card empty">
@@ -172,6 +175,7 @@ function SettingsPage({ onTheme, theme }) {
       </${Field}>
       <div><${Btn} kind="primary" onClick=${() => save({ publicHost: host })}>Сохранить</${Btn}></div>
     </div>
+    <${NodesSettings} />
     <${ProxySettings} />
     <div class="card col">
       <h2>Образы Minecraft</h2>

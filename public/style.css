@@ -69,6 +69,10 @@ h1 { font-size: 26px; } h2 { font-size: 16px; } h3 { font-size: 14px; }
 .badge::before { content: ""; width: 7px; height: 7px; border-radius: 50%; background: currentColor; }
 .badge.running { color: var(--ok); background: var(--ok-soft); }
 .badge.running::before { box-shadow: 0 0 0 3px color-mix(in srgb, var(--ok) 25%, transparent); }
+.badge.unreachable { color: var(--danger); background: color-mix(in srgb, var(--danger) 14%, transparent); }
+.noderow { display: flex; align-items: center; gap: 14px; padding: 14px 16px; border: 1px solid var(--line); border-radius: 12px; background: var(--panel2); flex-wrap: wrap; }
+.noderow .nm { font-weight: 650; }
+.cmd { cursor: pointer; }
 .badge.starting, .badge.busy { color: var(--warn-ink); background: var(--warn-soft); }
 .badge.starting::before, .badge.busy::before { animation: pulse 1s infinite; }
 .chip { display: inline-flex; align-items: center; gap: 5px; padding: 2px 9px; border-radius: 7px; font-size: 12px; font-weight: 550; background: var(--panel3); color: var(--muted); }
