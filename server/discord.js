@@ -29,12 +29,30 @@ const mem = new Map();
 const M = id => { let m = mem.get(id); if (!m) { m = { busy: false }; mem.set(id, m); } return m; };
 
 const TYPE_NAME = { VANILLA: 'Vanilla', PAPER: 'Paper', PURPUR: 'Purpur', FABRIC: 'Fabric', FORGE: 'Forge', NEOFORGE: 'NeoForge', AUTO_CURSEFORGE: 'CurseForge' };
-const fmtDur = ms => {
+/* Тексты сообщений на двух языках. Язык выбирается для каждого сервера (по умолчанию язык панели при подключении). */
+const STR = {
+  ru: {
+    server: 'Сервер', status: 'Статус', players: 'Игроки', version: 'Версия', address: 'Адрес', uptime: 'Аптайм', memory: 'Память', playing: 'Сейчас играют',
+    online: '🟢 Онлайн', starting: '🟡 Запускается', offline: '🔴 Выключен', of: 'из', gb: 'ГБ', more: n => ` и ещё ${n}`, dur: ['д', 'ч', 'мин'],
+    every: s => (s === 30 ? 'каждые 30 секунд' : s === 60 ? 'каждую минуту' : `каждые ${s / 60} ${s / 60 < 5 ? 'минуты' : 'минут'}`), updates: 'обновляется',
+    started: '🟢 **Сервер запущен**', stopped: '🔴 **Сервер остановлен**', crashed: code => `💥 **Сервер остановился с ошибкой** (код ${code})`,
+    joined: n => `➕ Зашёл${n > 1 ? 'и' : ''}: `, left: n => `➖ Вышел${n > 1 ? 'и' : ''}: `,
+  },
+  en: {
+    server: 'Server', status: 'Status', players: 'Players', version: 'Version', address: 'Address', uptime: 'Uptime', memory: 'Memory', playing: 'Playing now',
+    online: '🟢 Online', starting: '🟡 Starting', offline: '🔴 Offline', of: 'of', gb: 'GB', more: n => ` and ${n} more`, dur: ['d', 'h', 'min'],
+    every: s => (s === 30 ? 'every 30 seconds' : s === 60 ? 'every minute' : `every ${s / 60} minutes`), updates: 'updates',
+    started: '🟢 **Server started**', stopped: '🔴 **Server stopped**', crashed: code => `💥 **Server stopped with an error** (code ${code})`,
+    joined: n => `➕ Joined: `, left: n => `➖ Left: `,
+  },
+};
+export const LANGS = ['ru', 'en'];
+const sOf = cfg => STR[cfg.discord?.lang === 'en' ? 'en' : 'ru'];
+const fmtDur = (ms, U) => {
   const m = Math.max(0, Math.floor(ms / 60e3)), d = Math.floor(m / 1440), h = Math.floor((m % 1440) / 60);
-  return d ? `${d} д ${h} ч` : h ? `${h} ч ${m % 60} мин` : `${m} мин`;
+  return d ? `${d} ${U[0]} ${h} ${U[1]}` : h ? `${h} ${U[1]} ${m % 60} ${U[2]}` : `${m} ${U[2]}`;
 };
 const fmtGb = b => (b / 1024 ** 3).toFixed(1).replace(/\.0$/, '');
-const every = s => (s === 30 ? 'каждые 30 секунд' : s === 60 ? 'каждую минуту' : `каждые ${s / 60} ${s / 60 < 5 ? 'минуты' : 'минут'}`);
 const clean = s => String(s ?? '').replace(/[`\r\n]/g, '').slice(0, 40);
 
 /** Что показывать игрокам в поле «Адрес»: заданный вручную, домен сервера или публичный адрес машины с портом. */
@@ -48,30 +66,30 @@ export function addressOf(cfg) {
 
 /** Сообщение-табло. state: running | starting | stopped | missing. */
 export function boardEmbed(cfg, state, info, L = {}) {
-  const d = cfg.discord || {};
+  const d = cfg.discord || {}, X = sOf(cfg);
   const up = state === 'running', booting = state === 'starting';
-  const title = (String(cfg.name || 'Сервер').replace(/§./g, '') || 'Сервер').slice(0, 250);
-  const fields = [{ name: 'Статус', value: up ? '🟢 Онлайн' : booting ? '🟡 Запускается' : '🔴 Выключен', inline: true }];
-  if (up) fields.push({ name: 'Игроки', value: L.max != null ? `**${L.count}** из ${L.max}` : '—', inline: true });
-  fields.push({ name: 'Версия', value: `${TYPE_NAME[cfg.type] || cfg.type} ${cfg.version && cfg.version !== 'LATEST' ? cfg.version : ''}`.trim(), inline: true });
+  const title = (String(cfg.name || X.server).replace(/§./g, '') || X.server).slice(0, 250);
+  const fields = [{ name: X.status, value: up ? X.online : booting ? X.starting : X.offline, inline: true }];
+  if (up) fields.push({ name: X.players, value: L.max != null ? `**${L.count}** ${X.of} ${L.max}` : '—', inline: true });
+  fields.push({ name: X.version, value: `${TYPE_NAME[cfg.type] || cfg.type} ${cfg.version && cfg.version !== 'LATEST' ? cfg.version : ''}`.trim(), inline: true });
   const addr = addressOf(cfg);
-  if (addr) fields.push({ name: 'Адрес', value: '`' + clean(addr) + '`', inline: true });
-  if (up && info?.State?.StartedAt) fields.push({ name: 'Аптайм', value: fmtDur(Date.now() - Date.parse(info.State.StartedAt)), inline: true });
-  if (up && L.mem && L.memLimit) fields.push({ name: 'Память', value: `${fmtGb(L.mem)} из ${fmtGb(L.memLimit)} ГБ`, inline: true });
+  if (addr) fields.push({ name: X.address, value: '`' + clean(addr) + '`', inline: true });
+  if (up && info?.State?.StartedAt) fields.push({ name: X.uptime, value: fmtDur(Date.now() - Date.parse(info.State.StartedAt), X.dur), inline: true });
+  if (up && L.mem && L.memLimit) fields.push({ name: X.memory, value: `${fmtGb(L.mem)} ${X.of} ${fmtGb(L.memLimit)} ${X.gb}`, inline: true });
   if (up && L.count > 0) {
     const names = (L.online || []).filter(Boolean);
     const shown = names.slice(0, 30).map(n => '`' + clean(n) + '`').join(', ');
     const more = Math.max(L.count, names.length) - Math.min(names.length, 30);
-    fields.push({ name: 'Сейчас играют', value: ((shown || '—') + (more > 0 && shown ? ` и ещё ${more}` : '')).slice(0, 1000) });
+    fields.push({ name: X.playing, value: ((shown || '—') + (more > 0 && shown ? X.more(more) : '')).slice(0, 1000) });
   }
   return {
     title, color: up ? 0x2ecc71 : booting ? 0xf1c40f : 0xe74c3c, fields,
-    footer: { text: `HorizonCraft · обновляется ${every(d.interval || 60)}` }, timestamp: new Date().toISOString(),
+    footer: { text: `HorizonCraft · ${X.updates} ${X.every(d.interval || 60)}` }, timestamp: new Date().toISOString(),
   };
 }
 
 /** Короткое событие отдельным сообщением. */
-const eventEmbed = (cfg, text, color) => ({ title: String(cfg.name || 'Сервер').slice(0, 250), description: text.slice(0, 2000), color, timestamp: new Date().toISOString() });
+const eventEmbed = (cfg, text, color) => ({ title: String(cfg.name || sOf(cfg).server).slice(0, 250), description: text.slice(0, 2000), color, timestamp: new Date().toISOString() });
 
 /* ---------- обращение к Discord ---------- */
 async function call(cfg, hook, method, suffix, body) {
@@ -152,20 +170,20 @@ export async function syncOne(cfg, force = false) {
 
     // события: сравниваем с прошлым проходом (после перезапуска панели первый проход ничего не шлёт)
     if (m.prevState !== undefined && !(m.retryAt > now)) {
-      const ev = d.events || {};
+      const ev = d.events || {}, X = sOf(cfg);
       const lines = [];
       if (ev.state && state !== m.prevState) {
-        if (state === 'running') lines.push(['🟢 **Сервер запущен**', 0x2ecc71]);
+        if (state === 'running') lines.push([X.started, 0x2ecc71]);
         else if (state === 'stopped' && m.prevState !== 'missing') {
           const code = info?.State?.ExitCode;
-          lines.push(code && ![0, 137, 143].includes(code) ? [`💥 **Сервер остановился с ошибкой** (код ${code})`, 0xe74c3c] : ['🔴 **Сервер остановлен**', 0xe74c3c]);
+          lines.push(code && ![0, 137, 143].includes(code) ? [X.crashed(code), 0xe74c3c] : [X.stopped, 0xe74c3c]);
         }
       }
       if (ev.join && state === 'running' && m.prevState === 'running' && m.prevOnline && L.at && L.at !== m.prevAt) {
         const was = new Set(m.prevOnline), is = new Set(online);
         const joined = online.filter(n => !was.has(n)), left = m.prevOnline.filter(n => !is.has(n));
-        if (joined.length) lines.push([`➕ Зашёл${joined.length > 1 ? 'и' : ''}: ${joined.slice(0, 10).map(n => '`' + clean(n) + '`').join(', ')}`, 0x3498db]);
-        if (left.length) lines.push([`➖ Вышел${left.length > 1 ? 'и' : ''}: ${left.slice(0, 10).map(n => '`' + clean(n) + '`').join(', ')}`, 0x95a5a6]);
+        if (joined.length) lines.push([`${X.joined(joined.length)}${joined.slice(0, 10).map(n => '`' + clean(n) + '`').join(', ')}`, 0x3498db]);
+        if (left.length) lines.push([`${X.left(left.length)}${left.slice(0, 10).map(n => '`' + clean(n) + '`').join(', ')}`, 0x95a5a6]);
       }
       for (const [text, color] of lines) await post(cfg, hook, eventEmbed(cfg, text, color));
     }
@@ -210,7 +228,7 @@ export function pub(cfg) {
   const d = cfg.discord || {}, hook = parseHook(d.url), m = mem.get(cfg.id) || {};
   return {
     on: !!d.on, connected: !!hook, hook: hook ? `…/webhooks/${hook.id}/••••${hook.token.slice(-4)}` : '',
-    interval: d.interval || 60, address: d.address || '', autoAddress: addressOf({ ...cfg, discord: {} }),
+    interval: d.interval || 60, address: d.address || '', lang: d.lang === 'en' ? 'en' : 'ru', autoAddress: addressOf({ ...cfg, discord: {} }),
     events: { state: !!d.events?.state, join: !!d.events?.join },
     posted: !!d.messageId, sentAt: m.okAt || null, error: m.error || '',
     proxy: { on: !!d.proxy?.on && !!endpointOf(d.proxy), node: d.proxy?.node || '', name: proxyName(d.proxy) },
@@ -236,10 +254,12 @@ export function register(r, { h, view }) {
     if (!INTERVALS.includes(interval)) throw bad('Интервал: 30 секунд, 1, 2 или 5 минут');
     const address = b.address == null ? d.address || '' : String(b.address).replace(/[\r\n`]/g, '').trim().slice(0, 100);
     const on = b.on == null ? !!d.on : !!b.on;
+    const lang = b.lang == null ? (d.lang === 'en' ? 'en' : 'ru') : String(b.lang);
+    if (!LANGS.includes(lang)) throw bad('Язык сообщений: русский или английский');
     if (on && !parseHook(url)) throw bad('Сначала вставьте адрес вебхука');
     const proxy = cleanProxy(b.proxy, d.proxy);
     cfg.discord = {
-      ...d, url, on, interval, address, proxy, messageId: d.messageId || '',
+      ...d, url, on, interval, address, proxy, lang, messageId: d.messageId || '',
       events: { state: b.events ? !!b.events.state : !!d.events?.state, join: b.events ? !!b.events.join : !!d.events?.join },
     };
     store.save();

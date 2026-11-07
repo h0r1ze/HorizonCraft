@@ -15,7 +15,7 @@ import { VERSION } from './agent.js';
 const bad = (m, s = 400) => Object.assign(new Error(m), { status: s });
 const UA = `h0r1ze/HorizonCraft/${VERSION} (github.com/h0r1ze/HorizonCraft)`;
 const API = 'https://api.modrinth.com/v2';
-const CDN_HOST = 'cdn.modrinth.com';
+export const CDN_HOST = 'cdn.modrinth.com';
 const MAX_JAR = 300 * 1024 ** 2;
 const TTL = 30 * 60e3;
 
@@ -26,7 +26,7 @@ const LOADERS = {
 const dirOf = type => (type === 'PAPER' || type === 'PURPUR' ? 'plugins' : 'mods');
 
 /* ---------- Modrinth ---------- */
-async function mr(pathname, body) {
+export async function mr(pathname, body) {
   let r;
   try {
     r = await cfFetch(API + pathname, {
@@ -190,7 +190,7 @@ export async function check(cfg, force = false) {
 }
 
 /* ---------- установка ---------- */
-async function download(url, dest, sha1, expected) {
+export async function download(url, dest, sha1, expected) {
   const u = new URL(url);
   if (u.protocol !== 'https:' || u.hostname !== CDN_HOST) throw bad('Недопустимый адрес загрузки');
   const r = await cfFetch(url, { headers: { 'User-Agent': UA }, signal: AbortSignal.timeout(15 * 60e3) });

@@ -1,4 +1,4 @@
-import { html, render, useState, useEffect, Icon, Btn, Field, Toasts, Dialogs, toast, StateBadge, Avatar, Spark, Meter, TYPE_NAMES, TYPE_COLOR, addrOf, appState, getTheme, setTheme, THEMES, getUi, setUi, useUi, UIS, fmtBytes, fmtUptime, copyText, plural, isRemote } from './ui.js';
+import { html, rawHtml, render, lang, setLang, LANGS, useState, useEffect, Icon, Btn, Field, Toasts, Dialogs, toast, StateBadge, Avatar, Spark, Meter, TYPE_NAMES, TYPE_COLOR, addrOf, appState, getTheme, setTheme, THEMES, getUi, setUi, useUi, UIS, fmtBytes, fmtUptime, copyText, plural, isRemote } from './ui.js';
 import { api } from './api.js';
 import { CreatePage } from './create.js';
 import { NodesStrip, NodesSettings } from './nodes.js';
@@ -211,6 +211,11 @@ function SettingsPage({ onTheme, theme, onUi }) {
   return html`<div class="col" style="max-width:760px">
     <div class="head"><div><h1>Настройки</h1><div class="sub">Общие параметры панели</div></div></div>
     <div class="card col">
+      <h2>Язык / Language</h2>
+      <p class="muted" style="margin:0">Язык интерфейса панели. Выбор сохраняется в этом браузере. / The panel language. The choice is saved in this browser.</p>
+      <${LangPicker} />
+    </div>
+    <div class="card col">
       <h2>Вид интерфейса</h2>
       <p class="muted" style="margin:0">Раскладка страниц: меню, вкладки сервера, список серверов. Цвета задаёт тема ниже, поэтому вид и тему можно сочетать как угодно.</p>
       <${UiPicker} onUi=${onUi} />
@@ -277,6 +282,18 @@ function ThemePicker({ theme, onTheme }) {
         <${ThemeSwatch} t=${t} /><b>${t.name}</b></button>`)}</div></section>`;
   })}</div>`;
 }
+/** Язык интерфейса. Названия языков показываются на самих языках и не переводятся. */
+const LangPicker = () => rawHtml`<div class="langs">${LANGS.map(([id, name, short]) => rawHtml`<button key=${id} class=${'langbtn ' + (id === lang ? 'on' : '')} onClick=${() => id !== lang && setLang(id)}>
+  <b>${short}</b><span>${name}</span>${id === lang ? rawHtml`<${Icon} n="check" size=${16} />` : ''}</button>`)}</div>`;
+function LangMenu({ mobile }) {
+  const [open, setOpen] = useState(false);
+  const cur = LANGS.find(l => l[0] === lang) || LANGS[0];
+  return rawHtml`<div class="menu" style=${mobile ? 'flex:1;display:flex' : ''}>
+    <button class="nav" style="width:100%" title=${'Language: ' + cur[1]} onClick=${() => setOpen(!open)}><${Icon} n="globe" size=${mobile ? 20 : 17} /><span class="nl">${mobile ? cur[2] : cur[1]}</span></button>
+    ${open && rawHtml`<div class="menu-scrim" onClick=${() => setOpen(false)}></div>
+      <div class="pop up langpop" style=${mobile ? 'left:auto;right:0' : ''}>${LANGS.map(([id, name, short]) => rawHtml`<button key=${id} class=${id === lang ? 'cur' : ''} onClick=${() => id !== lang && setLang(id)}><b class="lcode">${short}</b>${name}</button>`)}</div>`}
+  </div>`;
+}
 function ThemeMenu({ theme, onTheme, mobile }) {
   const [open, setOpen] = useState(false);
   const cur = THEMES.find(t => t.id === theme) || THEMES[0];
@@ -330,6 +347,7 @@ function App() {
       <button class=${'nav ' + (settingsOn ? 'on' : '')} title="Настройки" onClick=${() => (location.hash = '#/settings')}><${Icon} n="gear" /><span class="nl">Настройки</span></button>
       <div class="sp"></div>
       <div class="sidefoot">
+        <${LangMenu} />
         <${ThemeMenu} theme=${theme} onTheme=${onTheme} />
         <button class="nav" title="Выйти" onClick=${logout}><${Icon} n="logout" /><span class="nl">Выйти</span></button>
       </div>
@@ -339,6 +357,7 @@ function App() {
       <button class=${'nav ' + (!settingsOn ? 'on' : '')} onClick=${() => (location.hash = '#/')}><${Icon} n="home" size=${20} />Обзор</button>
       <button class="nav" onClick=${() => (location.hash = '#/new')}><${Icon} n="plus" size=${20} />Создать</button>
       <button class=${'nav ' + (settingsOn ? 'on' : '')} onClick=${() => (location.hash = '#/settings')}><${Icon} n="gear" size=${20} />Настройки</button>
+      <${LangMenu} mobile=${true} />
       <${ThemeMenu} theme=${theme} onTheme=${onTheme} mobile=${true} />
     </nav>
     <${Toasts} />

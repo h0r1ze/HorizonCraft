@@ -1,37 +1,44 @@
-import { html, useState, useEffect, Icon, Btn, Field, Toggle, toast, askConfirm, ago, appState, isRemote } from './ui.js';
+import { html, rawHtml, useState, useEffect, Icon, Btn, Field, Toggle, toast, askConfirm, ago, appState, isRemote, lang as uiLang } from './ui.js';
 import { api } from './api.js';
 
 /* Табло в Discord: панель сама правит одно сообщение в канале через вебхук. */
 
 const INTERVALS = [[30, '30 секунд'], [60, '1 минута'], [120, '2 минуты'], [300, '5 минут']];
-const EVERY = { 30: 'каждые 30 секунд', 60: 'каждую минуту', 120: 'каждые 2 минуты', 300: 'каждые 5 минут' };
 const TYPE_NAME = { VANILLA: 'Vanilla', PAPER: 'Paper', PURPUR: 'Purpur', FABRIC: 'Fabric', FORGE: 'Forge', NEOFORGE: 'NeoForge', AUTO_CURSEFORGE: 'CurseForge' };
 
+/* Тексты макета на языке сообщений в Discord (не зависят от языка панели): так они выглядят в канале. */
+const PV = {
+  ru: { who: 'Вебхук', bot: 'БОТ', today: 'сегодня', status: 'Статус', players: 'Игроки', of: 'из', version: 'Версия', address: 'Адрес', uptime: 'Аптайм', self: 'обновляется само',
+    online: '🟢 Онлайн', starting: '🟡 Запускается', offline: '🔴 Выключен', updates: 'обновляется', every: { 30: 'каждые 30 секунд', 60: 'каждую минуту', 120: 'каждые 2 минуты', 300: 'каждые 5 минут' } },
+  en: { who: 'Webhook', bot: 'BOT', today: 'today', status: 'Status', players: 'Players', of: 'of', version: 'Version', address: 'Address', uptime: 'Uptime', self: 'updates itself',
+    online: '🟢 Online', starting: '🟡 Starting', offline: '🔴 Offline', updates: 'updates', every: { 30: 'every 30 seconds', 60: 'every minute', 120: 'every 2 minutes', 300: 'every 5 minutes' } },
+};
+
 /** Макет сообщения: так оно выглядит в Discord (по данным сервера прямо сейчас). */
-function Preview({ s, address, interval }) {
+function Preview({ s, address, interval, msgLang }) {
+  const X = PV[msgLang] || PV.ru;
   const up = s.state === 'running', boot = s.state === 'starting';
   const ver = `${TYPE_NAME[s.type] || s.type} ${s.version && s.version !== 'LATEST' ? s.version : ''}`.trim();
   const col = up ? '#2ecc71' : boot ? '#f1c40f' : '#e74c3c';
-  const f = (n, v, mono) => html`<div class="dcf"><b>${n}</b><span class=${mono ? 'mono' : ''}>${v}</span></div>`;
-  return html`<div class="dc-msg">
+  const f = (n, v, mono) => rawHtml`<div class="dcf"><b>${n}</b><span class=${mono ? 'mono' : ''}>${v}</span></div>`;
+  return rawHtml`<div class="dc-msg">
     <div class="dc-ava">${(s.name || 'H')[0]}</div>
     <div class="grow" style="min-width:0">
-      <div class="dc-who"><b>Вебхук</b><span class="dc-bot">БОТ</span><small>сегодня</small></div>
+      <div class="dc-who"><b>${X.who}</b><span class="dc-bot">${X.bot}</span><small>${X.today}</small></div>
       <div class="dc-embed" style=${`border-left-color:${col}`}>
         <div class="dc-title">${s.name}</div>
         <div class="dc-grid">
-          ${f('Статус', up ? '🟢 Онлайн' : boot ? '🟡 Запускается' : '🔴 Выключен')}
-          ${up && f('Игроки', html`<b>${s.players ?? 0}</b> из ${s.maxPlayers ?? '—'}`)}
-          ${f('Версия', ver)}
-          ${address && f('Адрес', address, true)}
-          ${up && f('Аптайм', 'обновляется само')}
+          ${f(X.status, up ? X.online : boot ? X.starting : X.offline)}
+          ${up && f(X.players, rawHtml`<b>${s.players ?? 0}</b> ${X.of} ${s.maxPlayers ?? '—'}`)}
+          ${f(X.version, ver)}
+          ${address && f(X.address, address, true)}
+          ${up && f(X.uptime, X.self)}
         </div>
-        <div class="dc-foot">HorizonCraft · обновляется ${EVERY[interval] || EVERY[60]}</div>
+        <div class="dc-foot">HorizonCraft · ${X.updates} ${X.every[interval] || X.every[60]}</div>
       </div>
     </div>
   </div>`;
 }
-
 
 /** Адрес, который увидят игроки: готовые варианты (домен, публичный и локальный адрес) и поле для любого своего. */
 function AddrPicker({ s, d, value, onChange }) {
@@ -79,14 +86,22 @@ function ProxyBox({ s, d, value, onChange }) {
   </div>`;
 }
 
+/** Язык сообщений в канале. Названия языков показываются на самих языках и не переводятся. */
+function MsgLang({ value, onChange }) {
+  return html`<div class="col" style="gap:8px"><span style="font-weight:580;font-size:13px">Язык сообщений в Discord</span>
+    <div class="gpick">${[['ru', 'Русский'], ['en', 'English']].map(([id, n]) => html`<button type="button" key=${id} class=${'gp none ' + (value === id ? 'on' : '')} onClick=${() => onChange(id)}>${rawHtml`<span>${n}</span>`}</button>`)}</div>
+    <small class="muted">На этом языке написаны статусы и события в канале. Он не зависит от языка панели.</small></div>`;
+}
+
 export function DiscordTab({ s }) {
   const [d, setD] = useState(null);
   const [f, setF] = useState(null);
   const [url, setUrl] = useState('');
   const [addr0, setAddr0] = useState('');
   const [proxy0, setProxy0] = useState({ on: false, node: '' });
+  const [lang0, setLang0] = useState(uiLang);   // язык сообщений в канале: по умолчанию язык панели
   const [busy, setBusy] = useState(false);
-  const set = (x, init) => { setD(x); if (init) setF({ on: x.on, interval: x.interval, address: x.address, events: x.events, proxy: { on: x.proxy.on, node: x.proxy.node } }); };
+  const set = (x, init) => { setD(x); if (init) setF({ on: x.on, interval: x.interval, address: x.address, lang: x.lang, events: x.events, proxy: { on: x.proxy.on, node: x.proxy.node } }); };
   const load = async init => { try { set(await api(`/servers/${s.id}/discord`), init); } catch (e) { toast(e.message, 'err'); } };
   useEffect(() => { load(true); const t = setInterval(() => load(false), 5000); return () => clearInterval(t); }, [s.id]);
   if (!d || !f) return html`<div class="skeleton" style="height:240px"></div>`;
@@ -103,7 +118,7 @@ export function DiscordTab({ s }) {
   };
   const connect = async () => {
     if (!url.trim()) return toast('Вставьте адрес вебхука', 'err');
-    const r = await put({ url, on: true, address: addr0.trim(), proxy: proxy0 }, 'Готово, табло появилось в канале');
+    const r = await put({ url, on: true, address: addr0.trim(), proxy: proxy0, lang: lang0 }, 'Готово, табло появилось в канале');
     if (r && !r.error) setUrl('');
   };
   const resend = async () => {
@@ -117,7 +132,7 @@ export function DiscordTab({ s }) {
     try { set(await api(`/servers/${s.id}/discord`, { method: 'DELETE' }), true); setUrl(''); toast('Discord отключён'); }
     catch (e) { toast(e.message, 'err'); }
   };
-  const dirty = f.on !== d.on || f.interval !== d.interval || f.address !== d.address || f.events.state !== d.events.state || f.events.join !== d.events.join || f.proxy.on !== d.proxy.on || (f.proxy.on && f.proxy.node !== d.proxy.node);
+  const dirty = f.on !== d.on || f.lang !== d.lang || f.interval !== d.interval || f.address !== d.address || f.events.state !== d.events.state || f.events.join !== d.events.join || f.proxy.on !== d.proxy.on || (f.proxy.on && f.proxy.node !== d.proxy.node);
   const addr = f.address || d.autoAddress;
 
   if (!d.connected) {
@@ -134,10 +149,11 @@ export function DiscordTab({ s }) {
             onKeyDown=${e => e.key === 'Enter' && connect()} />
             <${Btn} kind="primary" icon="msg" disabled=${busy} onClick=${connect}>${busy ? 'Подключение…' : 'Подключить'}</${Btn}></div></${Field}>
         <${AddrPicker} s=${s} d=${d} value=${addr0} onChange=${setAddr0} />
+        <${MsgLang} value=${lang0} onChange=${setLang0} />
         <${ProxyBox} s=${s} d=${d} value=${proxy0} onChange=${setProxy0} />
         ${d.error && html`<div class="banner warn" style="margin:0">${d.error}</div>`}
       </div>
-      <div class="card col"><h3 style="margin:0">Так это будет выглядеть</h3><${Preview} s=${s} address=${addr0 || d.autoAddress} interval=${60} /></div>
+      <div class="card col"><h3 style="margin:0">Так это будет выглядеть</h3><${Preview} s=${s} address=${addr0 || d.autoAddress} interval=${60} msgLang=${lang0} /></div>
     </div>`;
   }
 
@@ -157,6 +173,7 @@ export function DiscordTab({ s }) {
           <div class="seg" style="width:fit-content;white-space:nowrap">${INTERVALS.map(([v, n]) => html`<button key=${v} class=${f.interval === v ? 'on' : ''} onClick=${() => setF({ ...f, interval: v })}>${n}</button>`)}</div></${Field}></div>
         <div style="flex:1 1 300px;min-width:0"><${AddrPicker} s=${s} d=${d} value=${f.address} onChange=${v => setF({ ...f, address: v })} /></div>
       </div>
+      <${MsgLang} value=${f.lang} onChange=${v => setF({ ...f, lang: v })} />
       <div class="col" style="gap:8px"><h3 style="margin:4px 0 0">Отдельные сообщения о событиях</h3>
         <${Toggle} on=${f.events.state} onChange=${v => setF({ ...f, events: { ...f.events, state: v } })} label="Сервер запущен, остановлен или упал" />
         <${Toggle} on=${f.events.join} onChange=${v => setF({ ...f, events: { ...f.events, join: v } })} label="Игрок зашёл или вышел" /></div>
@@ -168,6 +185,6 @@ export function DiscordTab({ s }) {
         <${Btn} kind="danger ghost" icon="x" disabled=${busy} onClick=${drop}>Отключить</${Btn}>
       </div>
     </div>
-    <div class="card col"><h3 style="margin:0">Так сейчас выглядит сообщение</h3><${Preview} s=${s} address=${addr} interval=${f.interval} /></div>
+    <div class="card col"><h3 style="margin:0">Так сейчас выглядит сообщение</h3><${Preview} s=${s} address=${addr} interval=${f.interval} msgLang=${f.lang} /></div>
   </div>`;
 }

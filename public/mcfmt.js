@@ -1,4 +1,4 @@
-import { html, useState, useEffect, useRef } from '/vendor/htm-preact.js';
+import { useState, useEffect, useRef, html, rawHtml } from './ui.js';
 import { parse, strip, applyCode, applyAll, COLORS } from './mc.js';
 import { logoUrl } from './ui.js';
 
@@ -19,8 +19,9 @@ const styleOf = p => {
 };
 
 /** Цвета подстраиваются под тему панели; с real=true показываются настоящие цвета игры. */
-export const FmtText = ({ src, real }) => html`<span class=${'fmt' + (real ? ' mcreal' : '')}>${parse(src).map((p, i) =>
-  html`<span key=${i} style=${styleOf(p)}>${p.k ? html`<${Obf} t=${p.t} />` : p.t}</span>`)}</span>`;
+// Пользовательский текст (названия, приписки, MOTD) выводится через rawHtml: он никогда не переводится.
+export const FmtText = ({ src, real }) => rawHtml`<span class=${'fmt' + (real ? ' mcreal' : '')}>${parse(src).map((p, i) =>
+  rawHtml`<span key=${i} style=${styleOf(p)}>${p.k ? rawHtml`<${Obf} t=${p.t} />` : p.t}</span>`)}</span>`;
 
 /** Название сервера в панели: с форматированием, если оно задано. */
 export const ServerName = ({ s }) => (s.nameFmt ? html`<${FmtText} src=${s.nameFmt} />` : s.name);

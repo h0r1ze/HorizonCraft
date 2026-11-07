@@ -1,4 +1,4 @@
-import { html, useState, useEffect, useRef, Icon, Btn, Field, Meter, toast, TYPE_NAMES, TYPE_COLOR, fmtBytes, appState } from './ui.js';
+import { html, useState, useEffect, useRef, Icon, Btn, Field, Meter, toast, TYPE_NAMES, TYPE_COLOR, fmtBytes, appState, locale } from './ui.js';
 import { useNodes, NodePicker } from './nodes.js';
 import { useTemplates, tplLine } from './templates.js';
 import { api, getVersions } from './api.js';
@@ -42,7 +42,7 @@ export function ModpackSearch({ onPick, kind = 'modpack', loader = '', gameVersi
         <div class="row"><b class="grow" style="overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${m.name}</b></div>
         <p>${m.summary}</p>
         <div class="row"><${Btn} kind="sm primary" onClick=${() => onPick(m)}>${label}</${Btn}>
-          <span class="muted" style="font-size:12px">${m.author || ''} · ${Intl.NumberFormat('ru').format(m.downloads || 0)} загрузок</span></div>
+          <span class="muted" style="font-size:12px">${m.author || ''} · ${Intl.NumberFormat(locale).format(m.downloads || 0)} загрузок</span></div>
       </div></div>`)}</div>`}
   </div>`;
 }

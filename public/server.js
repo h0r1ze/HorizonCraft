@@ -1,4 +1,4 @@
-import { html, useState, useEffect, useRef, askConfirm, askText, Icon, Btn, Field, Toggle, Modal, Spark, Meter, Avatar, toast, StateBadge, TYPE_NAMES, TYPE_COLOR, fmtBytes, addrOf, uptime, ago, copyText, plural, appState, isRemote, useUi } from './ui.js';
+import { html, useState, useEffect, useRef, askConfirm, askText, Icon, Btn, Field, Toggle, Modal, Spark, Meter, Avatar, toast, StateBadge, TYPE_NAMES, TYPE_COLOR, fmtBytes, addrOf, uptime, ago, copyText, plural, appState, isRemote, useUi, locale } from './ui.js';
 import { api, getVersions } from './api.js';
 import { ModpackSearch } from './create.js';
 import { ServerProxy } from './proxy.js';
@@ -10,6 +10,8 @@ import { SaveTemplateDialog } from './templates.js';
 import { UpdatesTab } from './updates.js';
 import { MapTab } from './map.js';
 import { DiscordTab } from './discord.js';
+import { GroupsCard, GroupPicker } from './groups.js';
+import { WorldButtons } from './worlds.js';
 import { useNodes } from './nodes.js';
 
 const TABS = [
@@ -166,7 +168,7 @@ export function ServerPage({ id, tab }) {
 const memBytes = m => { const x = /^(\d+)([MG])$/.exec(m || ''); return x ? +x[1] * (x[2] === 'G' ? 1024 ** 3 : 1024 ** 2) : 0; };
 
 /* ---------------- Чат ---------------- */
-const fmtClock = t => new Date(t).toLocaleTimeString('ru-RU', { hour: '2-digit', minute: '2-digit' });
+const fmtClock = t => new Date(t).toLocaleTimeString(locale, { hour: '2-digit', minute: '2-digit' });
 function ChatName({ e, tags }) {
   const tag = e.nick && tagOf(tags, e.nick);
   if (e.fmt) return html`<${FmtText} real src=${e.name} />`;
@@ -275,7 +277,7 @@ function OverviewTab({ s }) {
           <dt>Порт</dt><dd>${s.port}</dd>
           <dt>Размер на диске</dt><dd>${fmtBytes(o.diskBytes)}</dd>
           <dt>Резервные копии</dt><dd>${o.backups ? `${o.backups} шт. · ${fmtBytes(o.backupsSize)} · ${ago(o.lastBackup)}` : 'нет'}</dd>
-          <dt>Создан</dt><dd>${new Date(s.createdAt).toLocaleDateString('ru')}</dd>
+          <dt>Создан</dt><dd>${new Date(s.createdAt).toLocaleDateString(locale)}</dd>
         </dl></div>
       <div class="card col"><h2>Быстрые действия</h2>
         <${Field} label="Сообщение всем игрокам">
@@ -286,6 +288,7 @@ function OverviewTab({ s }) {
           <${Btn} icon="terminal" onClick=${() => (location.hash = `#/s/${s.id}/console`)}>Консоль</${Btn}>
           <${Btn} icon="folder" onClick=${() => (location.hash = `#/s/${s.id}/files`)}>Файлы</${Btn}>
         </div>
+        <${WorldButtons} s=${s} />
         <div><h3 style="margin-bottom:10px">Сейчас на сервере</h3>
           ${o.online.length ? html`<div class="list">${o.online.map(n => html`<div class="pcard" key=${n}>
               <img src=${'https://mc-heads.net/avatar/' + n + '/24'} width="24" height="24" onError=${e => (e.target.style.display = 'none')} /><b>${n}</b></div>`)}</div>`
@@ -391,7 +394,8 @@ function ConsoleTab({ s }) {
 }
 
 /* ---------------- Игроки ---------------- */
-const TAG_EMPTY = { nick: '', prefix: '', suffix: '', color: '' };
+const TAG_EMPTY = { nick: '', prefix: '', suffix: '', color: '', group: '' };
+const tagForm = (nick, t, d) => ({ nick, prefix: t?.prefix || '', suffix: t?.suffix || '', color: t?.color || '', group: (d.groups && d.groups[Object.keys(d.groups).find(k => k.toLowerCase() === String(nick).toLowerCase())]) || '' });
 const tagOf = (tags, n) => tags?.[n] || tags?.[Object.keys(tags || {}).find(k => k.toLowerCase() === String(n).toLowerCase())];
 const TagPreview = ({ nick, tag }) => html`<span class="mc-box mini mcreal">${tag.prefix ? html`<${FmtText} real src=${tag.prefix} /> ` : ''}<span style=${`color:var(--mc${tag.color || 'f'})`}>${nick || 'Ник'}</span>${tag.suffix ? html` <${FmtText} real src=${tag.suffix} />` : ''}</span>`;
 
@@ -407,14 +411,16 @@ function TagScene({ nick, tag }) {
   </div>`;
 }
 
-function TagsCard({ s, d, load, f, setF }) {
+function TagsCard({ s, d, gs, load, f, setF }) {
   const [busy, setBusy] = useState(false);
   const tags = d.tags || {};
   const names = [...new Set([...d.online, ...Object.keys(tags)])];
   const save = async () => {
     setBusy(true);
     try {
-      const r = await api(`/servers/${s.id}/tags`, { method: 'PUT', body: f });
+      const body = { ...f };
+      if (!gs?.on) delete body.group;   // без включённых групп поле не отправляем: группа игрока не меняется
+      const r = await api(`/servers/${s.id}/tags`, { method: 'PUT', body });
       if (r.error) toast('Сохранено, но сервер ответил ошибкой: ' + r.error, 'err');
       else toast(r.applied ? 'Приписка применена' : 'Сохранено. Применится, когда сервер будет запущен');
       setF(TAG_EMPTY); load();
@@ -429,7 +435,7 @@ function TagsCard({ s, d, load, f, setF }) {
     <h2>Приписки к никам <span class="sub">видны в списке игроков (Tab), в чате и над головой</span></h2>
     ${Object.keys(tags).length ? html`<div class="col" style="gap:8px">${Object.entries(tags).map(([n, t]) => html`<div class="tagrow" key=${n}>
         <${TagPreview} nick=${n} tag=${t} /><span class="grow"></span>
-        <${Btn} kind="sm" onClick=${() => setF({ nick: n, prefix: t.prefix || '', suffix: t.suffix || '', color: t.color || '' })}>Изменить</${Btn}>
+        <${Btn} kind="sm" onClick=${() => setF(tagForm(n, t, d))}>Изменить</${Btn}>
         <${Btn} kind="sm danger" onClick=${() => remove(n)}>Убрать</${Btn}></div>`)}</div>`
       : html`<div class="muted">Пока нет ни одной приписки</div>`}
     <div class="tagform">
@@ -437,6 +443,13 @@ function TagsCard({ s, d, load, f, setF }) {
         <${Field} label="Ник игрока" hint="Точно, с учётом регистра. Можно выбрать из списка тех, кто сейчас онлайн.">
           <input list="tag-nicks" value=${f.nick} placeholder="Steve" onInput=${e => set({ nick: e.target.value })} />
           <datalist id="tag-nicks">${names.map(n => html`<option value=${n} />`)}</datalist></${Field}>
+        ${gs?.on && html`<${GroupPicker} gs=${gs} value=${f.group} onPick=${id => {
+          const g = gs.groups.find(x => x.id === id);
+          // приписка группы подставляется сама; при снятии группы убираем её приписку, если её не меняли вручную
+          const wasGroupPrefix = gs.groups.some(x => x.prefix === f.prefix);
+          set({ group: id, prefix: g ? g.prefix : (wasGroupPrefix ? '' : f.prefix) });
+        }} />`}
+        ${gs && !gs.on && html`<small class="muted">Права по группам (ADMIN, MODERATOR, VIP, FLY, HORIZON) включаются в блоке «Группы игроков» выше.</small>`}
         <div style="display:flex;flex-direction:column;gap:6px"><span style="font-weight:580;font-size:13px">Цвет самого ника</span>
           <${ColorRow} value=${f.color} none=${true} onPick=${c => set({ color: c })} />
           <small class="muted">Для ника доступны только 16 цветов игры. Жирный и прочие стили действуют на приписки.</small></div>
@@ -450,7 +463,7 @@ function TagsCard({ s, d, load, f, setF }) {
       </div>
     </div>
     <div class="row wrap"><span class="grow"></span>
-      <${Btn} kind="primary" icon="save" disabled=${!f.nick || busy || (!f.prefix && !f.suffix && !f.color)} onClick=${save}>Сохранить приписку</${Btn}></div>
+      <${Btn} kind="primary" icon="save" disabled=${!f.nick || busy || (!f.prefix && !f.suffix && !f.color && !f.group)} onClick=${save}>Сохранить приписку</${Btn}></div>
     <small class="muted">Работает через команды team (Minecraft 1.13 и новее), приписки хранятся в панели и заново применяются при каждом запуске сервера. Если игрок состоит в другой команде, он перейдёт в команду приписки.</small>
   </div>`;
 }
@@ -459,7 +472,11 @@ function PlayersTab({ s }) {
   const [d, setD] = useState(null);
   const [name, setName] = useState('');
   const [tf, setTf] = useState(TAG_EMPTY);
-  const load = async () => { try { setD(await api(`/servers/${s.id}/players`)); } catch {} };
+  const [gs, setGs] = useState(null);
+  const load = async () => {
+    try { setD(await api(`/servers/${s.id}/players`)); } catch {}
+    try { setGs(await api(`/servers/${s.id}/groups`)); } catch { setGs(null); }
+  };
   useEffect(() => { load(); const t = setInterval(load, 8000); return () => clearInterval(t); }, [s.id]);
   const act = async (action, n, extra = {}) => {
     try { const r = await api(`/servers/${s.id}/players/${action}`, { method: 'POST', body: { name: n, ...extra } }); toast(r.out || 'Готово'); load(); }
@@ -479,14 +496,15 @@ function PlayersTab({ s }) {
             <select style="width:auto;padding:5px 8px" value="" onChange=${e => e.target.value && (act('gamemode', n, { mode: e.target.value }), (e.target.value = ''))}>
               <option value="">Режим…</option><option value="survival">Выживание</option><option value="creative">Творчество</option>
               <option value="adventure">Приключение</option><option value="spectator">Наблюдатель</option></select>
-            <${Btn} kind="sm" onClick=${() => { const t = tagOf(d.tags, n); setTf({ nick: n, prefix: t?.prefix || '', suffix: t?.suffix || '', color: t?.color || '' }); document.getElementById('tags-card')?.scrollIntoView({ behavior: 'smooth', block: 'center' }); }}>Приписка</${Btn}>
+            <${Btn} kind="sm" onClick=${() => { const t = tagOf(d.tags, n); setTf(tagForm(n, t, d)); document.getElementById('tags-card')?.scrollIntoView({ behavior: 'smooth', block: 'center' }); }}>Приписка</${Btn}>
             <${Btn} kind="sm" icon="msg" onClick=${async () => { const r = await askText('Личное сообщение игроку ' + n, { label: 'Сообщение', required: true, ok: 'Отправить', placeholder: 'Что передать игроку?' }); if (r) act('tell', n, { reason: r.value }); }}>Написать</${Btn}>
             <${Btn} kind="sm" onClick=${() => act(d.ops.includes(n) ? 'deop' : 'op', n)}>${d.ops.includes(n) ? 'Снять OP' : 'Дать OP'}</${Btn}>
             <${Btn} kind="sm" onClick=${async () => { const r = await askText('Кик игрока ' + n, { label: 'Причина (необязательно)', ok: 'Выгнать', danger: true }); if (r) act('kick', n, { reason: r.value }); }}>Кик</${Btn}>
             <${Btn} kind="sm danger" onClick=${async () => { const r = await askText('Бан игрока ' + n, { label: 'Причина (необязательно)', ok: 'Забанить', danger: true }); if (r) act('ban', n, { reason: r.value }); }}>Бан</${Btn}>
           </div>`)}</div>`}
     </div>
-    <${TagsCard} s=${s} d=${d} load=${load} f=${tf} setF=${setTf} />
+    <${GroupsCard} s=${s} gs=${gs} reload=${load} />
+    <${TagsCard} s=${s} d=${d} gs=${gs} load=${load} f=${tf} setF=${setTf} />
     <div class="card col">
       <h2>Добавить по нику</h2>
       <div class="row wrap"><input style="max-width:280px" placeholder="Ник игрока" value=${name} onInput=${e => setName(e.target.value)} />
@@ -747,7 +765,7 @@ function ModsTab({ s, reload }) {
 const KIND = { manual: 'Ручная', auto: 'По расписанию', 'pre-restore': 'Перед восстановлением' };
 function stampOf(name) {
   const m = /^(\d{4})(\d{2})(\d{2})-(\d{2})(\d{2})(\d{2})/.exec(name);
-  return m ? new Date(+m[1], m[2] - 1, +m[3], +m[4], +m[5], +m[6]).toLocaleString('ru') : name;
+  return m ? new Date(+m[1], m[2] - 1, +m[3], +m[4], +m[5], +m[6]).toLocaleString(locale) : name;
 }
 
 function BackupsTab({ s }) {
@@ -981,7 +999,7 @@ function FilesTab({ s }) {
         ${data.entries.map(e => html`<tr class="click" key=${e.name} onClick=${() => open(e)}>
           <td><div class="row"><span style=${e.dir ? 'color:var(--warn)' : 'color:var(--muted)'}><${Icon} n=${e.dir ? 'folder' : 'file'} size=${16} /></span><span>${e.name}</span></div></td>
           <td class="muted">${e.dir ? '' : fmtBytes(e.size)}</td>
-          <td class="muted">${e.mtime ? new Date(e.mtime).toLocaleString('ru') : ''}</td>
+          <td class="muted">${e.mtime ? new Date(e.mtime).toLocaleString(locale) : ''}</td>
           <td onClick=${ev => ev.stopPropagation()}><div class="row" style="gap:2px;justify-content:flex-end">
             ${!e.dir && ARCH.test(e.name) && html`<${Btn} kind="sm ghost icon" icon="unpack" title="Распаковать" disabled=${!!s.busy} onClick=${() => openExtract(e.name)} />`}
             ${!e.dir && html`<a class="btn sm ghost icon" title="Скачать" href=${`/api/servers/${s.id}/file?download=1&path=${encodeURIComponent(join(e.name))}`}><${Icon} n="download" size=${15} /></a>`}

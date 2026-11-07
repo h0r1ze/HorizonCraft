@@ -22,6 +22,8 @@ import * as migrateMod from './migrate.js';
 import * as updatesMod from './updates.js';
 import * as templatesMod from './templates.js';
 import * as discordMod from './discord.js';
+import * as groupsMod from './groups.js';
+import * as worldsMod from './worlds.js';
 import { agentAuth, AGENT, VERSION } from './agent.js';
 
 const h = fn => (req, res, next) =>
@@ -291,6 +293,7 @@ async function finishStaged(token, { start = false, name } = {}) {
   } catch { cfg.port = await nextPort(); }
   if (Array.isArray(c.schedule)) cfg.schedule = cleanTasks(c.schedule);
   if (c.tags) cfg.tags = cleanTags(c.tags);
+  if (c.groups?.on) cfg.groups = { on: true, members: groupsMod.cleanMembers(c.groups.members) };
   if (c.map?.on) cfg.map = { on: true, port: await mapMod.allocPort(), added: !!c.map.added };
   const dest = dk.serverDir(cfg.id);
   fs.mkdirSync(path.dirname(dest), { recursive: true });
@@ -722,7 +725,7 @@ export function createRouter() {
     const out = {
       running: !!info?.State.Running, online: [], max: null,
       ops: readNames(id, 'ops.json'), whitelist: readNames(id, 'whitelist.json'),
-      banned: readNames(id, 'banned-players.json'), tags: req.cfg.tags || {},
+      banned: readNames(id, 'banned-players.json'), tags: req.cfg.tags || {}, groups: groupsMod.membersOf(req.cfg),
     };
     if (out.running) {
       const t = await dk.rcon(id, 'list');
@@ -759,22 +762,42 @@ export function createRouter() {
     const tags = (req.cfg.tags ||= {});
     const old = Object.keys(tags).find(k => k.toLowerCase() === nick.toLowerCase());
     const live = await ready(req.cfg);
+    // Группа игрока (права LuckPerms). Поле group необязательно: без него группа не меняется, пустое значение её снимает.
+    let groupError = null;
+    if ('group' in req.body) {
+      const gid = String(req.body.group || '');
+      if (gid && !groupsMod.groupById(gid)) throw bad('Неизвестная группа');
+      groupsMod.setMember(req.cfg, nick, gid);
+      if (live && req.cfg.groups?.on) {
+        try {
+          if (!(await groupsMod.loaded(req.cfg))) groupError = 'Плагины прав ещё не загружены, группа применится после перезапуска сервера';
+          else await groupsMod.applyMember(req.cfg, nick, gid || null);
+        } catch (e) { groupError = e.message; }
+      }
+    }
     if (old && old !== nick) { delete tags[old]; if (live) await sv.removeTag(req.cfg, old).catch(() => {}); }
     if (!tag.prefix && !tag.suffix && !tag.color) {
       delete tags[nick]; store.save();
       if (live) await sv.removeTag(req.cfg, nick).catch(() => {});
-      return res.json({ tags, applied: live });
+      return res.json({ tags, applied: live, error: groupError });
     }
     tags[nick] = tag;
     store.save();
     let errors = [];
     if (live) { try { errors = await sv.applyTag(req.cfg, nick, tag); } catch (e) { errors = [e.message]; } }
-    res.json({ tags, applied: live && !errors.length, error: errors[0] || null });
+    res.json({ tags, applied: live && !errors.length, error: errors[0] || groupError || null });
   }));
   r.delete('/servers/:id/tags/:nick', h(async (req, res) => {
     const tags = req.cfg.tags || {};
     const key = Object.keys(tags).find(k => k.toLowerCase() === String(req.params.nick).toLowerCase());
-    if (key) { delete tags[key]; store.save(); if (await ready(req.cfg)) await sv.removeTag(req.cfg, key).catch(() => {}); }
+    const live = await ready(req.cfg);
+    if (key) { delete tags[key]; store.save(); if (live) await sv.removeTag(req.cfg, key).catch(() => {}); }
+    // вместе с припиской игрок теряет и группу: права возвращаются к обычным
+    const nick = key || String(req.params.nick);
+    if (Object.keys(groupsMod.membersOf(req.cfg)).some(k => k.toLowerCase() === nick.toLowerCase())) {
+      groupsMod.setMember(req.cfg, nick, '');
+      if (live && req.cfg.groups?.on) await groupsMod.applyMember(req.cfg, nick, null).catch(() => {});
+    }
     res.json({ tags });
   }));
   r.get('/servers/:id/chat', h(async (req, res) => {
@@ -1060,6 +1083,8 @@ export function createRouter() {
   mapMod.register(r, ctx);
   templatesMod.register(r, ctx);
   discordMod.register(r, ctx);
+  groupsMod.register(r, ctx);
+  worldsMod.register(r, ctx);
 
   return r;
 }

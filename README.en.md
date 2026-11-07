@@ -20,7 +20,7 @@ Create, configure and maintain multiple servers from your browser. No Java, port
 </div>
 
 > [!NOTE]
-> The panel's user interface is currently in **Russian only**.
+> The panel interface is available in **Russian and English**. Switch the language in the side menu or in **Settings**; the choice is remembered in the browser. (Screenshots of newer features below are in English; some older ones still show the Russian interface.)
 
 ---
 
@@ -86,6 +86,9 @@ Example: `PANEL_PORT=9090 ADMIN_PASSWORD=MySecret123 ./install.sh`
 | 🔄 **Updates** | New Minecraft versions and fresh versions of plugins and mods: files are recognised by hash on Modrinth and updated on selection, with a backup beforehand |
 | 🗺️ **World map** | A live Dynmap map in one click: plugin, port and link are set up for you |
 | 💬 **Discord status board** | A message with the server status, players, version and address keeps itself up to date in your channel through a webhook, no bot needed. Optional notifications for start, stop and players joining |
+| 👥 **Player groups** | ADMIN, MODERATOR, VIP, FLY and HORIZON: ready-made permission sets and a coloured name tag. The permission plugins are installed with one button and a group is picked in the player form |
+| 🧹 **World clearing** | The 'Clear the Overworld', 'Clear the Nether' and 'Clear the End' buttons: with a backup before deleting, and the server stops and starts again by itself |
+| 🌐 **Two languages** | Russian and English interface, plus a separate language for Discord messages |
 | 📋 **Templates** | Save a configured server (settings, mods, configs) as a template and create new servers from it on any machine |
 | 🌐 **Network & domains** | Many servers behind a single port 25565 by domain (via `mc-router`), extra ports for voice chat or Dynmap |
 | 📁 **Files** | Browse and edit files, upload, extract and download archives |
@@ -115,7 +118,7 @@ Example: `PANEL_PORT=9090 ADMIN_PASSWORD=MySecret123 ./install.sh`
   </tr>
   <tr>
     <td width="50%"><img src="docs/nodes-form.png" alt="Connecting a node"><br><sub><b>Connecting a node.</b> Install command, address and token</sub></td>
-    <td width="50%"><img src="docs/themes.png" alt="Themes"><br><sub><b>Themes.</b> Six dark and four light themes, split into groups</sub></td>
+    <td width="50%"><img src="docs/en/themes.png" alt="Themes"><br><sub><b>Themes.</b> Six dark and four light themes, split into groups</sub></td>
   </tr>
   <tr>
     <td width="50%"><img src="docs/updates.png" alt="Updates"><br><sub><b>Updates.</b> New Minecraft versions and fresh plugin and mod builds</sub></td>
@@ -126,11 +129,19 @@ Example: `PANEL_PORT=9090 ADMIN_PASSWORD=MySecret123 ./install.sh`
     <td width="50%"><img src="docs/template.png" alt="Create from a template"><br><sub><b>Templates.</b> A new server from a saved template</sub></td>
   </tr>
   <tr>
-    <td width="50%"><img src="docs/discord-setup.png" alt="Connecting Discord"><br><sub><b>Discord.</b> Paste the webhook URL, choose the address players see (a domain, a public IP or a LAN address) and, if needed, a proxy</sub></td>
-    <td width="50%"><img src="docs/discord.png" alt="Discord status board"><br><sub><b>Status board.</b> Refresh rate, event notifications, proxy and a preview of the message</sub></td>
+    <td width="50%"><img src="docs/en/discord-setup.png" alt="Connecting Discord"><br><sub><b>Discord.</b> Paste the webhook URL, choose the address players see (a domain, a public IP or a LAN address) and, if needed, a proxy</sub></td>
+    <td width="50%"><img src="docs/en/discord.png" alt="Discord status board"><br><sub><b>Status board.</b> Refresh rate, event notifications, proxy and a preview of the message</sub></td>
   </tr>
   <tr>
-    <td colspan="2" align="center"><img src="docs/tags.png" alt="Player name tags" width="620"><br><sub><b>Name tags.</b> A large in-game preview: the player list (Tab) and chat</sub></td>
+    <td width="50%"><img src="docs/en/groups.png" alt="Player groups"><br><sub><b>Player groups.</b> Five ready-made groups and what each one can do</sub></td>
+    <td width="50%"><img src="docs/en/tags.png" alt="Group picker in the player form"><br><sub><b>Group and name tag.</b> Pick a group in the player form with a large in-game preview</sub></td>
+  </tr>
+  <tr>
+    <td width="50%"><img src="docs/en/worlds.png" alt="World clearing buttons"><br><sub><b>World clearing.</b> Three buttons in Quick actions, with the size of each dimension</sub></td>
+    <td width="50%"><img src="docs/en/worlds-dialog.png" alt="Clearing confirmation"><br><sub><b>Confirmation.</b> A backup by default; the server stops and starts again automatically</sub></td>
+  </tr>
+  <tr>
+    <td colspan="2" align="center"><img src="docs/en/language.png" alt="Language picker" width="620"><br><sub><b>Interface language.</b> Russian or English, switched in one click</sub></td>
   </tr>
 </table>
 
@@ -245,6 +256,39 @@ The panel edits the same message instead of flooding the channel. It refreshes e
 - The webhook URL is a secret: the panel never shows it in the interface and leaves it out of clones, migrations and templates. `@everyone` mentions in messages are disabled.
 - Discord is blocked by some providers. The tab has its own **Send through a proxy** block: turn it on and pick a node from those added under **Settings → "Прокси для серверов"** (a 3x-ui subscription, a `vless://` link or your own proxy). Only this board's requests use it; the rest of the traffic is unchanged. **Check connection** shows at once whether Discord opens and accepts the webhook. For servers on nodes, the nodes of the machine that runs the server are used.
 - If the panel stops, the message stops updating; the timestamp in it shows this.
+
+## 👥 Player groups
+
+The **Players → Player groups** block gives you five ready-made groups. Permissions come from [LuckPerms](https://modrinth.com/plugin/luckperms); the `/fly` and `/tpa` commands come from [EssentialsX](https://modrinth.com/plugin/essentialsx). The panel downloads both plugins from Modrinth, creates the groups and assigns them to players.
+
+| Group | Name tag | What it can do |
+|---|---|---|
+| **ADMIN** | red `[ADMIN]` | Full access: all server and plugin commands |
+| **MODERATOR** | blue `[MODERATOR]` | Kick, ban (including temporary), mute, teleport to players and players to you, vanish, inventory viewing, flight. Not allowed: giving items, changing game mode, OP, stopping the server |
+| **VIP** | yellow `[VIP]` | Flight and teleport |
+| **FLY** | green `[FLY]` | Flight only |
+| **HORIZON** | grey `[HORIZON]` | A regular player with no privileges, teleport. Players with no group assigned get the same permissions |
+
+1. Open the server → **Players** → **Player groups**. If the server runs Vanilla, click **Switch to Paper**: the world, settings and players are kept.
+2. Click **Enable groups** and restart the server. Permissions are applied by themselves after it starts.
+3. In the **Name tags** form enter a nickname and pick a group. The group's name tag is filled in automatically. You can assign a player in advance: the group is applied when they join.
+
+- Teleport for VIP and HORIZON works by request: `/tpa`, `/tpahere` and `/tpaccept` by the other player (FLY has no teleport). A direct `/tp` is only available to ADMIN and MODERATOR.
+- Permissions are bound to the player's UUID, so changing the nickname's letter case or assigning again duplicates nothing.
+- EssentialsX officially supports Minecraft versions with a small delay. On the very newest versions the log may show an "unsupported server version" warning; the plugin still loads.
+
+## 🧹 World clearing
+
+On the server overview, **Quick actions** has the **Clear the Overworld**, **Clear the Nether** and **Clear the End** buttons. Only the chunk data of the chosen dimension is deleted: inventories, achievements, settings and the other dimensions are untouched. The server generates the dimension anew on the next start.
+
+- A backup is made before clearing by default (you can turn it off in the confirmation window).
+- If the server is running, the panel stops it and starts it again after clearing.
+- The Overworld has a **new seed** option: `level.dat` is deleted, so the world is created with a different seed, and time, weather and game rules are reset.
+- Both folder layouts are supported: the new one (`world/dimensions/minecraft/…`) and the older one (`world/region`, `DIM-1`, `DIM1`, `world_nether`, `world_the_end`).
+
+## 🌐 Interface language
+
+The panel speaks Russian and English. Switch it with the button in the side menu or in **Settings → Language**. The browser language is used by default. The language of Discord messages is chosen separately on the **Discord** tab.
 
 ## 📋 Server templates
 

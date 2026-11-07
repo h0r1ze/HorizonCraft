@@ -1,5 +1,11 @@
-import { html, useState, useEffect, useRef } from '/vendor/htm-preact.js';
+import { html as baseHtml, useState, useEffect, useRef } from '/vendor/htm-preact.js';
+import { trStrings, trVal, isEn, lang, locale, t, pluralOf, setLang, LANGS } from './i18n.js';
 export * from '/vendor/htm-preact.js';
+export { t, lang, isEn, locale, setLang, LANGS };
+
+/** Шаблоны с автопереводом (английский режим). rawHtml — без перевода, для пользовательского текста. */
+export const rawHtml = baseHtml;
+export const html = isEn ? (s, ...v) => baseHtml(trStrings(s), ...v.map(trVal)) : baseHtml;
 
 export const appState = { settings: {} };
 
@@ -170,8 +176,8 @@ export function useUi() {
 
 /* ---------- утилиты ---------- */
 export const fmtBytes = n => {
-  if (!n) return '0 Б';
-  const u = ['Б', 'КБ', 'МБ', 'ГБ', 'ТБ'];
+  const u = isEn ? ['B', 'KB', 'MB', 'GB', 'TB'] : ['Б', 'КБ', 'МБ', 'ГБ', 'ТБ'];
+  if (!n) return '0 ' + u[0];
   const i = Math.min(Math.floor(Math.log(n) / Math.log(1024)), u.length - 1);
   return (n / 1024 ** i).toFixed(i > 1 ? 1 : 0) + ' ' + u[i];
 };
@@ -200,24 +206,29 @@ export const uptime = iso => {
   if (!iso) return '';
   const sec = Math.max(0, (Date.now() - new Date(iso)) / 1000);
   const d = Math.floor(sec / 86400), h = Math.floor(sec % 86400 / 3600), m = Math.floor(sec % 3600 / 60);
-  return d ? `${d} д ${h} ч` : h ? `${h} ч ${m} мин` : `${m} мин`;
+  const U = isEn ? ['d', 'h', 'min'] : ['д', 'ч', 'мин'];
+  return d ? `${d} ${U[0]} ${h} ${U[1]}` : h ? `${h} ${U[1]} ${m} ${U[2]}` : `${m} ${U[2]}`;
 };
 export const fmtUptime = sec => {
   const d = Math.floor(sec / 86400), h = Math.floor(sec % 86400 / 3600);
-  return d ? `${d} д ${h} ч` : `${h} ч ${Math.floor(sec % 3600 / 60)} мин`;
+  const U = isEn ? ['d', 'h', 'min'] : ['д', 'ч', 'мин'];
+  return d ? `${d} ${U[0]} ${h} ${U[1]}` : `${h} ${U[1]} ${Math.floor(sec % 3600 / 60)} ${U[2]}`;
 };
 export const ago = ms => {
-  if (!ms) return 'никогда';
+  if (!ms) return isEn ? 'never' : 'никогда';
   const s = (Date.now() - ms) / 1000;
+  if (isEn) {
+    if (s < 60) return 'just now';
+    if (s < 3600) return Math.floor(s / 60) + ' min ago';
+    if (s < 86400) return Math.floor(s / 3600) + ' h ago';
+    return Math.floor(s / 86400) + ' d ago';
+  }
   if (s < 60) return 'только что';
   if (s < 3600) return Math.floor(s / 60) + ' мин назад';
   if (s < 86400) return Math.floor(s / 3600) + ' ч назад';
   return Math.floor(s / 86400) + ' д назад';
 };
-export const plural = (n, one, few, many) => {
-  const a = Math.abs(n) % 100, b = a % 10;
-  return a > 10 && a < 20 ? many : b === 1 ? one : b >= 2 && b <= 4 ? few : many;
-};
+export const plural = pluralOf;
 /* Копирование сразу в буфер. По http с IP-адресом navigator.clipboard недоступен, поэтому есть запасной путь через execCommand. */
 export const copyText = async t => {
   let ok = false;

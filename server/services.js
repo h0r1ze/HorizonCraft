@@ -7,6 +7,7 @@ import * as dk from './dock.js';
 import crypto from 'crypto';
 import * as M from '../public/mc.js';
 import { resolveNick } from './chat.js';
+import * as groupsMod from './groups.js';
 
 const sleep = ms => new Promise(r => setTimeout(r, ms));
 const pad = n => String(n).padStart(2, '0');
@@ -145,6 +146,7 @@ async function pollServer(cfg) {
       }
     }
   }
+  if (max != null) groupsMod.onPoll(cfg, L, online, info.State.StartedAt);
   Object.assign(L, { running: true, at: Date.now(), online, count, max, cpu: st?.cpu || 0, cores: st?.cores || 0, cpus: st?.cpus || 0, mem: st?.mem || 0, memLimit: st?.memLimit || 0 });
   L.hist.push({ t: Date.now(), cpu: L.cpu, cores: L.cores, mem: L.mem, players: count });
   if (L.hist.length > HIST) L.hist.shift();
