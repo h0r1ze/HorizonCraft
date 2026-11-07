@@ -12,12 +12,19 @@ export function panelEndpoint() {
   return P.endpoints(pp.node, getGateway());
 }
 
-export async function cfFetch(url, init = {}) {
-  const ep = panelEndpoint();
+/** Запрос напрямую (ep пустой) или через HTTP-вход выбранного узла прокси. */
+export async function proxyFetch(ep, url, init = {}) {
   if (!ep) return fetch(url, init);
   let agent = agents.get(ep.http);
   if (!agent) { agent = new ProxyAgent({ uri: `http://${ep.http}`, connectTimeout: 15000 }); agents.set(ep.http, agent); }
   return ufetch(url, { ...init, dispatcher: agent });
+}
+export const cfFetch = (url, init = {}) => proxyFetch(panelEndpoint(), url, init);
+
+/** Точка прокси по настройке { on, node }; null, если прокси выключен или узел пропал. */
+export function endpointOf(p) {
+  if (!p?.on || !P.nodeExists(p.node)) return null;
+  return P.endpoints(p.node, getGateway());
 }
 
 /** Два пробных запроса: сам ключ и поиск. Возвращает коды ответа (0, если связи нет). */

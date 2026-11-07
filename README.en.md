@@ -89,7 +89,7 @@ Example: `PANEL_PORT=9090 ADMIN_PASSWORD=MySecret123 ./install.sh`
 | 📁 **Files** | Browse and edit files, upload, extract and download archives |
 | 📦 **Import & clone** | Upload an existing server as an archive, or clone one together with its world |
 | 📊 **Monitoring** | CPU, memory and disk usage for the host and each server |
-| 🎨 **Looks** | Three interface layouts to choose from (Graphite, Light, Hosting) and ten colour themes, server covers and icons, coloured MOTD editor |
+| 🎨 **Looks** | Three interface layouts to choose from (Graphite, Light, Hosting) and ten colour themes (six dark and four light, listed in separate groups), server covers and icons, coloured MOTD editor |
 | 🔒 **Download proxy** | Fetch modpacks and mods through VLESS (3x-ui subscription or `vless://` link) if sites are blocked where you live |
 
 ## 📸 Screenshots
@@ -113,7 +113,7 @@ Example: `PANEL_PORT=9090 ADMIN_PASSWORD=MySecret123 ./install.sh`
   </tr>
   <tr>
     <td width="50%"><img src="docs/nodes-form.png" alt="Connecting a node"><br><sub><b>Connecting a node.</b> Install command, address and token</sub></td>
-    <td width="50%"><img src="docs/themes.png" alt="Themes"><br><sub><b>Themes.</b> Ten dark and light themes</sub></td>
+    <td width="50%"><img src="docs/themes.png" alt="Themes"><br><sub><b>Themes.</b> Six dark and four light themes, split into groups</sub></td>
   </tr>
   <tr>
     <td width="50%"><img src="docs/updates.png" alt="Updates"><br><sub><b>Updates.</b> New Minecraft versions and fresh plugin and mod builds</sub></td>
@@ -124,8 +124,11 @@ Example: `PANEL_PORT=9090 ADMIN_PASSWORD=MySecret123 ./install.sh`
     <td width="50%"><img src="docs/template.png" alt="Create from a template"><br><sub><b>Templates.</b> A new server from a saved template</sub></td>
   </tr>
   <tr>
-    <td width="50%"><img src="docs/discord-setup.png" alt="Connecting Discord"><br><sub><b>Discord.</b> Paste the webhook URL and choose the address players see: a domain, a public IP or a LAN address</sub></td>
-    <td width="50%"><img src="docs/discord.png" alt="Discord status board"><br><sub><b>Status board.</b> Refresh rate, event notifications and a preview of the message</sub></td>
+    <td width="50%"><img src="docs/discord-setup.png" alt="Connecting Discord"><br><sub><b>Discord.</b> Paste the webhook URL, choose the address players see (a domain, a public IP or a LAN address) and, if needed, a proxy</sub></td>
+    <td width="50%"><img src="docs/discord.png" alt="Discord status board"><br><sub><b>Status board.</b> Refresh rate, event notifications, proxy and a preview of the message</sub></td>
+  </tr>
+  <tr>
+    <td colspan="2" align="center"><img src="docs/tags.png" alt="Player name tags" width="620"><br><sub><b>Name tags.</b> A large in-game preview: the player list (Tab), chat and the name above the head</sub></td>
   </tr>
 </table>
 
@@ -238,7 +241,7 @@ The **Discord** tab (under "System") turns a single message in your channel into
 The panel edits the same message instead of flooding the channel. It refreshes every 30 seconds, 1, 2 or 5 minutes, and a start, a stop or a change in player count reaches the board almost immediately. Optionally, separate messages announce events: server started, stopped or crashed, player joined or left. **Send again** deletes the old message and posts a fresh one (for example, to pin it).
 
 - The webhook URL is a secret: the panel never shows it in the interface and leaves it out of clones, migrations and templates. `@everyone` mentions in messages are disabled.
-- Discord is blocked by some providers. Turn on **Settings → CurseForge → "Запросы панели через прокси"** (panel requests through a proxy; the switch appears once a CurseForge key is added) and the Discord requests go through the chosen node.
+- Discord is blocked by some providers. The tab has its own **Send through a proxy** block: turn it on and pick a node from those added under **Settings → "Прокси для серверов"** (a 3x-ui subscription, a `vless://` link or your own proxy). Only this board's requests use it; the rest of the traffic is unchanged. **Check connection** shows at once whether Discord opens and accepts the webhook. For servers on nodes, the nodes of the machine that runs the server are used.
 - If the panel stops, the message stops updating; the timestamp in it shows this.
 
 ## 📋 Server templates

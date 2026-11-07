@@ -395,6 +395,20 @@ const TAG_EMPTY = { nick: '', prefix: '', suffix: '', color: '' };
 const tagOf = (tags, n) => tags?.[n] || tags?.[Object.keys(tags || {}).find(k => k.toLowerCase() === String(n).toLowerCase())];
 const TagPreview = ({ nick, tag }) => html`<span class="mc-box mini mcreal">${tag.prefix ? html`<${FmtText} real src=${tag.prefix} /> ` : ''}<span style=${`color:var(--mc${tag.color || 'f'})`}>${nick || 'Ник'}</span>${tag.suffix ? html` <${FmtText} real src=${tag.suffix} />` : ''}</span>`;
 
+/** Крупный предпросмотр приписки как в игре: список игроков (Tab), чат и ник над головой. */
+function TagScene({ nick, tag }) {
+  const line = html`<span class="tsl mcreal">${tag.prefix ? html`<${FmtText} real src=${tag.prefix} /> ` : ''}<span style=${`color:var(--mc${tag.color || 'f'})`}>${nick || 'Ник'}</span>${tag.suffix ? html` <${FmtText} real src=${tag.suffix} />` : ''}</span>`;
+  return html`<div class="tscene">
+    <div class="ts-top"><b>Так это увидят игроки</b><small>предпросмотр как в игре</small></div>
+    <div class="ts-block"><span class="ts-lab">Список игроков (Tab)</span>
+      <div class="ts-tab"><div class="r dim">Steve</div><div class="r me">${line}</div><div class="r dim">Alex</div></div></div>
+    <div class="ts-block"><span class="ts-lab">Чат</span>
+      <div class="ts-chat"><span class="mcreal">${'<'}</span>${line}<span class="mcreal">${'>'} Всем привет!</span></div></div>
+    <div class="ts-block"><span class="ts-lab">Над головой</span>
+      <div class="ts-world"><div class="ts-tag">${line}</div><div class="ts-body"></div></div></div>
+  </div>`;
+}
+
 function TagsCard({ s, d, load, f, setF }) {
   const [busy, setBusy] = useState(false);
   const tags = d.tags || {};
@@ -428,6 +442,7 @@ function TagsCard({ s, d, load, f, setF }) {
         <div style="display:flex;flex-direction:column;gap:6px"><span style="font-weight:580;font-size:13px">Цвет самого ника</span>
           <${ColorRow} value=${f.color} none=${true} onPick=${c => set({ color: c })} />
           <small class="muted">Для ника доступны только 16 цветов игры. Жирный и прочие стили действуют на приписки.</small></div>
+        <${TagScene} nick=${f.nick} tag=${f} />
       </div>
       <div class="col" style="gap:14px">
         <div style="display:flex;flex-direction:column;gap:6px"><span style="font-weight:580;font-size:13px">Приписка перед ником</span>
@@ -436,8 +451,7 @@ function TagsCard({ s, d, load, f, setF }) {
           <${McEditor} value=${f.suffix} onChange=${v => set({ suffix: v })} max=${24} compact placeholder="&7(строитель)" /></div>
       </div>
     </div>
-    <div class="row wrap"><span class="muted" style="font-size:12.5px">Так увидят игроки:</span><${TagPreview} nick=${f.nick} tag=${f} />
-      <span class="grow"></span>
+    <div class="row wrap"><span class="grow"></span>
       <${Btn} kind="primary" icon="save" disabled=${!f.nick || busy || (!f.prefix && !f.suffix && !f.color)} onClick=${save}>Сохранить приписку</${Btn}></div>
     <small class="muted">Работает через команды team (Minecraft 1.13 и новее), приписки хранятся в панели и заново применяются при каждом запуске сервера. Если игрок состоит в другой команде, он перейдёт в команду приписки.</small>
   </div>`;

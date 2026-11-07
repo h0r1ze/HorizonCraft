@@ -51,13 +51,42 @@ function AddrPicker({ s, d, value, onChange }) {
   </${Field}>`;
 }
 
+/** Прокси только для табло: Discord открывается через выбранный узел (VLESS, ссылка vless:// или свой прокси). */
+function ProxyBox({ s, d, value, onChange }) {
+  const [chk, setChk] = useState(null);
+  const [busy, setBusy] = useState(false);
+  const nodes = d.proxyNodes || [];
+  const nodeName = id => nodes.find(n => n.id === id)?.name || '';
+  const toggle = on => { setChk(null); onChange({ on, node: value.node && nodes.some(n => n.id === value.node) ? value.node : (nodes[0]?.id || '') }); };
+  const test = async () => {
+    setBusy(true); setChk(null);
+    try { setChk(await api(`/servers/${s.id}/discord/check`, { method: 'POST', body: { proxy: value } })); }
+    catch (e) { setChk({ reach: false, error: e.message, via: '' }); }
+    setBusy(false);
+  };
+  return html`<div class="col" style="gap:10px;border-top:1px solid var(--line);padding-top:14px">
+    <div class="row wrap"><h3 class="grow" style="margin:0">Отправлять через прокси</h3>
+      <${Toggle} on=${value.on} onChange=${toggle} label=${value.on ? 'Включено' : 'Выключено'} /></div>
+    <small class="muted">Discord заблокирован у ряда провайдеров. Включите, и только запросы этого табло пойдут через выбранный узел. Остальной трафик панели и серверов не меняется. Узлы берутся из раздела «Прокси для серверов» в Настройках.</small>
+    ${nodes.length === 0 ? html`<div class="banner info" style="margin:0">Узлов прокси пока нет. Добавьте подписку 3x-ui, ссылку <span class="mono">vless://</span> или свой прокси в <a href="#/settings">Настройках → Прокси для серверов</a>${isRemote(s) ? ' на машине, где работает этот сервер' : ''}.</div>`
+      : html`<div class="row wrap" style="gap:10px">
+        <select style="max-width:380px" value=${value.node} disabled=${!value.on} onChange=${e => { setChk(null); onChange({ on: true, node: e.target.value }); }}>
+          ${nodes.map(n => html`<option key=${n.id} value=${n.id}>${n.name}${n.host ? ' · ' + n.host : ''}</option>`)}</select>
+        <${Btn} icon="refresh" disabled=${busy} onClick=${test}>${busy ? 'Проверка…' : 'Проверить связь'}</${Btn}></div>`}
+    ${chk && html`<div class=${'banner ' + (chk.reach && chk.webhook !== 'bad' ? 'info' : 'warn')} style="margin:0">
+      ${chk.reach ? html`Discord доступен${chk.via ? ' (' + chk.via + ')' : ''}, ответ за ${chk.ms} мс.${chk.webhook === 'ok' ? ' Вебхук принимается.' : chk.webhook === 'bad' ? ' Но Discord не признаёт этот вебхук: проверьте адрес.' : ''}`
+        : html`${chk.error || 'Discord не открывается'}`}</div>`}
+  </div>`;
+}
+
 export function DiscordTab({ s }) {
   const [d, setD] = useState(null);
   const [f, setF] = useState(null);
   const [url, setUrl] = useState('');
   const [addr0, setAddr0] = useState('');
+  const [proxy0, setProxy0] = useState({ on: false, node: '' });
   const [busy, setBusy] = useState(false);
-  const set = (x, init) => { setD(x); if (init) setF({ on: x.on, interval: x.interval, address: x.address, events: x.events }); };
+  const set = (x, init) => { setD(x); if (init) setF({ on: x.on, interval: x.interval, address: x.address, events: x.events, proxy: { on: x.proxy.on, node: x.proxy.node } }); };
   const load = async init => { try { set(await api(`/servers/${s.id}/discord`), init); } catch (e) { toast(e.message, 'err'); } };
   useEffect(() => { load(true); const t = setInterval(() => load(false), 5000); return () => clearInterval(t); }, [s.id]);
   if (!d || !f) return html`<div class="skeleton" style="height:240px"></div>`;
@@ -74,7 +103,7 @@ export function DiscordTab({ s }) {
   };
   const connect = async () => {
     if (!url.trim()) return toast('Вставьте адрес вебхука', 'err');
-    const r = await put({ url, on: true, address: addr0.trim() }, 'Готово, табло появилось в канале');
+    const r = await put({ url, on: true, address: addr0.trim(), proxy: proxy0 }, 'Готово, табло появилось в канале');
     if (r && !r.error) setUrl('');
   };
   const resend = async () => {
@@ -88,7 +117,7 @@ export function DiscordTab({ s }) {
     try { set(await api(`/servers/${s.id}/discord`, { method: 'DELETE' }), true); setUrl(''); toast('Discord отключён'); }
     catch (e) { toast(e.message, 'err'); }
   };
-  const dirty = f.on !== d.on || f.interval !== d.interval || f.address !== d.address || f.events.state !== d.events.state || f.events.join !== d.events.join;
+  const dirty = f.on !== d.on || f.interval !== d.interval || f.address !== d.address || f.events.state !== d.events.state || f.events.join !== d.events.join || f.proxy.on !== d.proxy.on || (f.proxy.on && f.proxy.node !== d.proxy.node);
   const addr = f.address || d.autoAddress;
 
   if (!d.connected) {
@@ -105,8 +134,8 @@ export function DiscordTab({ s }) {
             onKeyDown=${e => e.key === 'Enter' && connect()} />
             <${Btn} kind="primary" icon="msg" disabled=${busy} onClick=${connect}>${busy ? 'Подключение…' : 'Подключить'}</${Btn}></div></${Field}>
         <${AddrPicker} s=${s} d=${d} value=${addr0} onChange=${setAddr0} />
+        <${ProxyBox} s=${s} d=${d} value=${proxy0} onChange=${setProxy0} />
         ${d.error && html`<div class="banner warn" style="margin:0">${d.error}</div>`}
-        ${!d.viaProxy && html`<small class="muted">Discord заблокирован у ряда провайдеров. Если сообщение не появится, включите «Запросы панели через прокси» в Настройках (блок CurseForge, появляется после добавления ключа).</small>`}
       </div>
       <div class="card col"><h3 style="margin:0">Так это будет выглядеть</h3><${Preview} s=${s} address=${addr0 || d.autoAddress} interval=${60} /></div>
     </div>`;
@@ -131,6 +160,7 @@ export function DiscordTab({ s }) {
       <div class="col" style="gap:8px"><h3 style="margin:4px 0 0">Отдельные сообщения о событиях</h3>
         <${Toggle} on=${f.events.state} onChange=${v => setF({ ...f, events: { ...f.events, state: v } })} label="Сервер запущен, остановлен или упал" />
         <${Toggle} on=${f.events.join} onChange=${v => setF({ ...f, events: { ...f.events, join: v } })} label="Игрок зашёл или вышел" /></div>
+      <${ProxyBox} s=${s} d=${d} value=${f.proxy} onChange=${v => setF({ ...f, proxy: v })} />
       <div class="row wrap" style="gap:10px">
         <${Btn} kind="primary" icon="save" disabled=${busy || !dirty} onClick=${() => put(f, 'Сохранено')}>Сохранить</${Btn}>
         <${Btn} icon="refresh" disabled=${busy || !d.on || dirty} onClick=${resend} title="Удалить старое сообщение и отправить табло заново, например, чтобы закрепить его">Отправить заново</${Btn}>

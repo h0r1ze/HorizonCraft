@@ -193,7 +193,10 @@ export function clearSubscription() {
 /** Серверы, которые использовали пропавший узел, отключаются от прокси. */
 export function dropFromServers(id) {
   if (st().panelProxy?.node === id) st().panelProxy = { on: false, node: '' };
-  for (const cfg of store.get().servers) if (cfg.proxy?.node === id) cfg.proxy = { ...cfg.proxy, on: false, node: '' };
+  for (const cfg of store.get().servers) {
+    if (cfg.proxy?.node === id) cfg.proxy = { ...cfg.proxy, on: false, node: '' };
+    if (cfg.discord?.proxy?.node === id) cfg.discord.proxy = { on: false, node: '' };
+  }
 }
 
 /** Публичное описание без секретов. */

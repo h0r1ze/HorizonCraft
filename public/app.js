@@ -267,9 +267,15 @@ function ThemeSwatch({ t }) {
     <i style=${`left:8px;bottom:7px;width:62%;height:5px;background:${t.sw.text};opacity:.25`}></i>
     ${t.sw.hl && html`<i style=${`right:10px;bottom:8px;width:9px;height:9px;border-radius:50%;background:${t.sw.hl}`}></i>`}</div>`;
 }
+const THEME_GROUPS = [['dark', 'Тёмные темы', 'moon'], ['light', 'Светлые темы', 'sun']];
 function ThemePicker({ theme, onTheme }) {
-  return html`<div class="themes">${THEMES.map(t => html`<button key=${t.id} class=${'themebtn ' + (t.id === theme ? 'on' : '')} onClick=${() => onTheme(t.id)}>
-    <${ThemeSwatch} t=${t} /><b>${t.name}</b><small>${t.mode === 'dark' ? 'тёмная' : 'светлая'}</small></button>`)}</div>`;
+  return html`<div class="col" style="gap:20px">${THEME_GROUPS.map(([mode, title, icon]) => {
+    const list = THEMES.filter(t => t.mode === mode);
+    return html`<section key=${mode} class="thgroup">
+      <div class="thhead"><${Icon} n=${icon} size=${18} /><b>${title}</b><span class="thcount">${list.length}</span><i></i></div>
+      <div class="themes">${list.map(t => html`<button key=${t.id} class=${'themebtn ' + (t.id === theme ? 'on' : '')} onClick=${() => onTheme(t.id)}>
+        <${ThemeSwatch} t=${t} /><b>${t.name}</b></button>`)}</div></section>`;
+  })}</div>`;
 }
 function ThemeMenu({ theme, onTheme, mobile }) {
   const [open, setOpen] = useState(false);
@@ -277,8 +283,10 @@ function ThemeMenu({ theme, onTheme, mobile }) {
   return html`<div class="menu" style=${mobile ? 'flex:1;display:flex' : ''}>
     <button class="nav" style="width:100%" title=${'Тема: ' + cur.name} onClick=${() => setOpen(!open)}><${Icon} n="palette" size=${mobile ? 20 : 17} /><span class="nl">${mobile ? 'Тема' : 'Тема: ' + cur.name}</span></button>
     ${open && html`<div class="menu-scrim" onClick=${() => setOpen(false)}></div>
-      <div class="pop up" style=${mobile ? 'left:auto;right:0' : ''}>${THEMES.map(t => html`<button key=${t.id} class=${t.id === theme ? 'cur' : ''} onClick=${() => { onTheme(t.id); setOpen(false); }}>
-        <span class="sw2" style=${`background:linear-gradient(135deg,${t.sw.bg} 50%,${t.sw.accent} 50%)`}></span>${t.name}</button>`)}</div>`}
+      <div class="pop up themepop" style=${mobile ? 'left:auto;right:0' : ''}>${THEME_GROUPS.map(([mode, title, icon]) => html`<div key=${mode} class="pgrp">
+        <div class="pgh"><${Icon} n=${icon} size=${14} />${title}</div>
+        ${THEMES.filter(t => t.mode === mode).map(t => html`<button key=${t.id} class=${t.id === theme ? 'cur' : ''} onClick=${() => { onTheme(t.id); setOpen(false); }}>
+          <span class="sw2" style=${`background:linear-gradient(135deg,${t.sw.bg} 50%,${t.sw.accent} 50%)`}></span>${t.name}</button>`)}</div>`)}</div>`}
   </div>`;
 }
 

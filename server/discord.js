@@ -1,7 +1,8 @@
 import * as store from './store.js';
 import * as dk from './dock.js';
 import * as sv from './services.js';
-import { cfFetch, panelEndpoint } from './net.js';
+import * as P from './proxy.js';
+import { proxyFetch, endpointOf } from './net.js';
 
 /* Табло сервера в Discord. Панель один раз отправляет сообщение через вебхук канала и дальше сама его правит:
    статус, игроки, версия, аптайм, память. Бот не нужен. Отдельными сообщениями по желанию приходят события
@@ -73,8 +74,8 @@ export function boardEmbed(cfg, state, info, L = {}) {
 const eventEmbed = (cfg, text, color) => ({ title: String(cfg.name || 'Сервер').slice(0, 250), description: text.slice(0, 2000), color, timestamp: new Date().toISOString() });
 
 /* ---------- обращение к Discord ---------- */
-async function call(hook, method, suffix, body) {
-  const r = await cfFetch(hook.base + suffix, {
+async function call(cfg, hook, method, suffix, body) {
+  const r = await proxyFetch(endpointOf(cfg.discord?.proxy), hook.base + suffix, {
     method, signal: AbortSignal.timeout(12000),
     headers: body ? { 'content-type': 'application/json' } : {},
     body: body ? JSON.stringify({ ...body, allowed_mentions: { parse: [] } }) : undefined,
@@ -84,9 +85,18 @@ async function call(hook, method, suffix, body) {
   return { status: r.status, json };
 }
 
-const NET_ERR = () => (panelEndpoint()
-  ? 'Нет связи с Discord даже через прокси панели. Проверьте выбранный узел в Настройках (блок CurseForge → «Запросы панели через прокси»).'
-  : 'Нет связи с Discord. Если он заблокирован у вашего провайдера, включите «Запросы панели через прокси» в Настройках (блок CurseForge).');
+/** Название выбранного узла прокси для сообщений пользователю. */
+export function proxyName(p) {
+  if (!p?.on) return '';
+  if (p.node === 'external') return P.externalAddr() ? `${P.externalAddr().host}:${P.externalAddr().port}` : '';
+  return P.nodes().find(n => n.id === p.node)?.name || '';
+}
+const NET_ERR = cfg => {
+  const p = cfg.discord?.proxy, name = proxyName(p);
+  return endpointOf(p)
+    ? `Нет связи с Discord даже через прокси «${name}». Проверьте узел в разделе «Прокси» (Настройки) или выберите другой.`
+    : 'Нет связи с Discord. Если он заблокирован у вашего провайдера, включите ниже «Отправлять через прокси» и выберите узел.';
+};
 
 /** Разбор ответа: запоминает ошибку и паузу перед следующей попыткой. true, если сообщение принято. */
 function judge(m, r) {
@@ -106,8 +116,8 @@ function judge(m, r) {
 async function post(cfg, hook, embed) {
   const m = M(cfg.id);
   let r;
-  try { r = await call(hook, 'POST', '?wait=true', { embeds: [embed] }); }
-  catch { m.failures = (m.failures || 0) + 1; m.retryAt = Date.now() + Math.min(300, 30 * m.failures) * 1000; m.error = NET_ERR(); return null; }
+  try { r = await call(cfg, hook, 'POST', '?wait=true', { embeds: [embed] }); }
+  catch { m.failures = (m.failures || 0) + 1; m.retryAt = Date.now() + Math.min(300, 30 * m.failures) * 1000; m.error = NET_ERR(cfg); return null; }
   return judge(m, r) ? r.json : null;
 }
 
@@ -116,8 +126,8 @@ async function sendBoard(cfg, hook, embed) {
   const m = M(cfg.id), d = cfg.discord;
   if (d.messageId) {
     let r;
-    try { r = await call(hook, 'PATCH', `/messages/${d.messageId}`, { embeds: [embed] }); }
-    catch { m.failures = (m.failures || 0) + 1; m.retryAt = Date.now() + Math.min(300, 30 * m.failures) * 1000; m.error = NET_ERR(); return false; }
+    try { r = await call(cfg, hook, 'PATCH', `/messages/${d.messageId}`, { embeds: [embed] }); }
+    catch { m.failures = (m.failures || 0) + 1; m.retryAt = Date.now() + Math.min(300, 30 * m.failures) * 1000; m.error = NET_ERR(cfg); return false; }
     if (r.status === 404 && r.json?.code === 10008) { d.messageId = ''; store.save(); }   // сообщение удалили вручную
     else return judge(m, r);
   }
@@ -179,6 +189,22 @@ async function tick() {
 }
 export function startDiscord() { setInterval(() => tick().catch(() => {}), TICK).unref?.(); }
 
+/* ---------- прокси ---------- */
+/** Узлы прокси этой машины (там, где живёт сервер): подписка, ссылки vless:// и свой прокси. */
+export function proxyNodes() {
+  const list = P.nodes().map(n => ({ id: n.id, name: n.name, host: n.summary?.host || '' }));
+  const e = P.externalAddr();
+  if (e) list.push({ id: 'external', name: 'Свой прокси', host: `${e.host}:${e.port}` });
+  return list;
+}
+const cleanProxy = (b, cur) => {
+  if (b === undefined) return cur || { on: false, node: '' };
+  const on = !!b?.on, node = String(b?.node || '');
+  if (on && !node) throw bad('Выберите узел прокси');
+  if (on && !P.nodeExists(node)) throw bad('Выбранный узел прокси не найден');
+  return { on, node: on ? node : (cur?.node || '') };
+};
+
 /* ---------- публичное описание (без секрета) ---------- */
 export function pub(cfg) {
   const d = cfg.discord || {}, hook = parseHook(d.url), m = mem.get(cfg.id) || {};
@@ -187,7 +213,8 @@ export function pub(cfg) {
     interval: d.interval || 60, address: d.address || '', autoAddress: addressOf({ ...cfg, discord: {} }),
     events: { state: !!d.events?.state, join: !!d.events?.join },
     posted: !!d.messageId, sentAt: m.okAt || null, error: m.error || '',
-    viaProxy: !!panelEndpoint(),
+    proxy: { on: !!d.proxy?.on && !!endpointOf(d.proxy), node: d.proxy?.node || '', name: proxyName(d.proxy) },
+    proxyNodes: proxyNodes(),
   };
 }
 
@@ -210,8 +237,9 @@ export function register(r, { h, view }) {
     const address = b.address == null ? d.address || '' : String(b.address).replace(/[\r\n`]/g, '').trim().slice(0, 100);
     const on = b.on == null ? !!d.on : !!b.on;
     if (on && !parseHook(url)) throw bad('Сначала вставьте адрес вебхука');
+    const proxy = cleanProxy(b.proxy, d.proxy);
     cfg.discord = {
-      ...d, url, on, interval, address, messageId: d.messageId || '',
+      ...d, url, on, interval, address, proxy, messageId: d.messageId || '',
       events: { state: b.events ? !!b.events.state : !!d.events?.state, join: b.events ? !!b.events.join : !!d.events?.join },
     };
     store.save();
@@ -221,11 +249,26 @@ export function register(r, { h, view }) {
     res.json(pub(cfg));
   }));
 
+  // Проверка связи с Discord выбранным способом (по настройке из формы, ещё не сохранённой)
+  r.post('/servers/:id/discord/check', h(async (req, res) => {
+    const cfg = req.cfg, proxy = cleanProxy(req.body?.proxy, cfg.discord?.proxy);
+    const ep = endpointOf(proxy), t0 = Date.now();
+    const out = { via: proxy.on ? proxyName(proxy) || 'прокси' : 'напрямую', reach: false, ms: 0, webhook: null, error: '' };
+    try {
+      const g = await proxyFetch(ep, (process.env.DISCORD_TEST_BASE || 'https://discord.com') + '/api/v10/gateway', { signal: AbortSignal.timeout(12000) });
+      out.reach = g.status === 200; out.ms = Date.now() - t0;
+      if (!out.reach) out.error = `Discord ответил ошибкой ${g.status}`;
+      const hook = parseHook(cfg.discord?.url);
+      if (out.reach && hook) { const w = await proxyFetch(ep, hook.base, { signal: AbortSignal.timeout(12000) }); out.webhook = w.status === 200 ? 'ok' : 'bad'; }
+    } catch { out.error = proxy.on ? 'Через этот узел Discord не открывается' : 'Напрямую Discord не открывается'; }
+    res.json(out);
+  }));
+
   // Отправить табло заново новым сообщением (например, чтобы закрепить его или перенести вниз канала)
   r.post('/servers/:id/discord/resend', h(async (req, res) => {
     const cfg = req.cfg, d = cfg.discord, hook = d && parseHook(d.url);
     if (!hook || !d.on) throw bad('Табло не включено');
-    if (d.messageId) { await call(hook, 'DELETE', `/messages/${d.messageId}`).catch(() => {}); d.messageId = ''; store.save(); }
+    if (d.messageId) { await call(cfg, hook, 'DELETE', `/messages/${d.messageId}`).catch(() => {}); d.messageId = ''; store.save(); }
     const m = M(cfg.id); m.error = ''; m.retryAt = 0;
     await syncOne(cfg, true);
     res.json(pub(cfg));
@@ -233,7 +276,7 @@ export function register(r, { h, view }) {
 
   r.delete('/servers/:id/discord', h(async (req, res) => {
     const cfg = req.cfg, d = cfg.discord, hook = d && parseHook(d.url);
-    if (hook && d.messageId && req.query.keep !== '1') await call(hook, 'DELETE', `/messages/${d.messageId}`).catch(() => {});
+    if (hook && d.messageId && req.query.keep !== '1') await call(cfg, hook, 'DELETE', `/messages/${d.messageId}`).catch(() => {});
     delete cfg.discord;
     mem.delete(cfg.id);
     store.save();
