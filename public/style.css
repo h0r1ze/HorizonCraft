@@ -487,11 +487,6 @@ tr.click:hover td { background: var(--panel2); }
 .ts-tab .r.me { background: rgba(255, 255, 255, .2); }
 .ts-chat { background: rgba(18, 18, 22, .92); border-radius: 6px; padding: 7px 11px; font: 700 18px/1.35 "Consolas", "Menlo", monospace; color: #fff; text-shadow: 2px 2px 0 rgba(0, 0, 0, .6); word-break: break-word; }
 .ts-chat .tsl { font-size: 18px; }
-.ts-world { position: relative; height: 128px; border-radius: 10px; overflow: hidden; display: flex; flex-direction: column; align-items: center; justify-content: flex-end; padding-bottom: 12px; gap: 6px;
-  background: linear-gradient(#8fb8ff 0 62%, #5da63a 62% 74%, #7a5230 74%); }
-.ts-tag { position: relative; z-index: 1; background: rgba(0, 0, 0, .55); padding: 2px 10px; border-radius: 3px; max-width: 94%; text-align: center; }
-.ts-body { width: 40px; height: 40px; position: relative; flex: none; background: linear-gradient(#4a2f1b 0 30%, #c8966b 30%); border: 2px solid rgba(0, 0, 0, .25); }
-.ts-body::after { content: ""; position: absolute; left: 7px; top: 19px; width: 8px; height: 6px; background: linear-gradient(90deg, #fff 50%, #3b4ad8 50%); box-shadow: 16px 0 0 #3b4ad8; }
 :root[data-mode="light"] .ts-top b { color: var(--text); }
 
 /* ---------- Темы: тёмные и светлые отдельными группами ---------- */

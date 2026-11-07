@@ -134,7 +134,7 @@ docker compose up -d --build
     <td width="50%"><img src="docs/discord.png" alt="Табло в Discord"><br><sub><b>Табло в Discord.</b> Частота обновления, уведомления о событиях, прокси и макет сообщения</sub></td>
   </tr>
   <tr>
-    <td colspan="2" align="center"><img src="docs/tags.png" alt="Приписки к никам" width="620"><br><sub><b>Приписки к никам.</b> Крупный предпросмотр как в игре: список игроков (Tab), чат и ник над головой</sub></td>
+    <td colspan="2" align="center"><img src="docs/tags.png" alt="Приписки к никам" width="620"><br><sub><b>Приписки к никам.</b> Крупный предпросмотр как в игре: список игроков (Tab) и чат</sub></td>
   </tr>
 </table>
 

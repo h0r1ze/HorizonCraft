@@ -395,7 +395,7 @@ const TAG_EMPTY = { nick: '', prefix: '', suffix: '', color: '' };
 const tagOf = (tags, n) => tags?.[n] || tags?.[Object.keys(tags || {}).find(k => k.toLowerCase() === String(n).toLowerCase())];
 const TagPreview = ({ nick, tag }) => html`<span class="mc-box mini mcreal">${tag.prefix ? html`<${FmtText} real src=${tag.prefix} /> ` : ''}<span style=${`color:var(--mc${tag.color || 'f'})`}>${nick || 'Ник'}</span>${tag.suffix ? html` <${FmtText} real src=${tag.suffix} />` : ''}</span>`;
 
-/** Крупный предпросмотр приписки как в игре: список игроков (Tab), чат и ник над головой. */
+/** Крупный предпросмотр приписки как в игре: список игроков (Tab) и чат. */
 function TagScene({ nick, tag }) {
   const line = html`<span class="tsl mcreal">${tag.prefix ? html`<${FmtText} real src=${tag.prefix} /> ` : ''}<span style=${`color:var(--mc${tag.color || 'f'})`}>${nick || 'Ник'}</span>${tag.suffix ? html` <${FmtText} real src=${tag.suffix} />` : ''}</span>`;
   return html`<div class="tscene">
@@ -404,8 +404,6 @@ function TagScene({ nick, tag }) {
       <div class="ts-tab"><div class="r dim">Steve</div><div class="r me">${line}</div><div class="r dim">Alex</div></div></div>
     <div class="ts-block"><span class="ts-lab">Чат</span>
       <div class="ts-chat"><span class="mcreal">${'<'}</span>${line}<span class="mcreal">${'>'} Всем привет!</span></div></div>
-    <div class="ts-block"><span class="ts-lab">Над головой</span>
-      <div class="ts-world"><div class="ts-tag">${line}</div><div class="ts-body"></div></div></div>
   </div>`;
 }
 

@@ -130,7 +130,7 @@ Example: `PANEL_PORT=9090 ADMIN_PASSWORD=MySecret123 ./install.sh`
     <td width="50%"><img src="docs/discord.png" alt="Discord status board"><br><sub><b>Status board.</b> Refresh rate, event notifications, proxy and a preview of the message</sub></td>
   </tr>
   <tr>
-    <td colspan="2" align="center"><img src="docs/tags.png" alt="Player name tags" width="620"><br><sub><b>Name tags.</b> A large in-game preview: the player list (Tab), chat and the name above the head</sub></td>
+    <td colspan="2" align="center"><img src="docs/tags.png" alt="Player name tags" width="620"><br><sub><b>Name tags.</b> A large in-game preview: the player list (Tab) and chat</sub></td>
   </tr>
 </table>
 
