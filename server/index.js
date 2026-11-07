@@ -12,6 +12,7 @@ import { createRouter, verify } from './routes.js';
 import { agentAuth } from './agent.js';
 import * as nodes from './nodes.js';
 import { startChecks } from './updates.js';
+import { startDiscord } from './discord.js';
 import { startServices } from './services.js';
 import { cleanupOld } from './importer.js';
 import { migrate as migrateProxy } from './proxy.js';
@@ -97,6 +98,7 @@ startServices();
 cleanupOld();
 nodes.startPolling();
 startChecks();
+startDiscord();
 
 // Для уже сохранённого ключа выясняем, доступен ли поиск CurseForge.
 (async () => {

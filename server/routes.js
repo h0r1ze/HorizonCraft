@@ -21,6 +21,7 @@ import * as mapMod from './map.js';
 import * as migrateMod from './migrate.js';
 import * as updatesMod from './updates.js';
 import * as templatesMod from './templates.js';
+import * as discordMod from './discord.js';
 import { agentAuth, AGENT, VERSION } from './agent.js';
 
 const h = fn => (req, res, next) =>
@@ -38,11 +39,12 @@ const { busy, errs, run } = sv;
 
 async function view(cfg) {
   const info = await dk.inspect(cfg.id);
-  const { rconPassword, ...rest } = cfg;
+  const { rconPassword, discord, ...rest } = cfg;
   const mo = dk.motdOf(cfg);
   const L = sv.live.get(cfg.id);
   return {
     ...rest,
+    discord: discord?.on ? { on: true } : null,
     motd: { follow: mo.follow, l1: cfg.motd?.l1 || '', l2: mo.l2 },
     players: L?.running && L.max != null ? L.count : null,
     maxPlayers: L?.running ? L.max : null,
@@ -221,7 +223,7 @@ async function versions() {
 // ---------- перенос и шаблоны: «портативное» описание сервера ----------
 /** Описание сервера, которое можно передать на другую машину: без пароля RCON, id и привязки к этой машине. */
 function portable(cfg) {
-  const { rconPassword, id, createdAt, cover, logo, iconSynced, ...rest } = JSON.parse(JSON.stringify(cfg));
+  const { rconPassword, id, createdAt, cover, logo, iconSynced, discord, ...rest } = JSON.parse(JSON.stringify(cfg));
   const img = (has, f) => (has && fs.existsSync(f) ? fs.readFileSync(f).toString('base64') : undefined);
   return { ...rest, images: { cover: img(cover, coverFile(cfg.id)), logo: img(logo, logoFile(cfg.id)) } };
 }
@@ -972,7 +974,7 @@ export function createRouter() {
     const withData = !!req.body.withData;
     if (withData && (await dk.inspect(src.id))?.State.Running) throw bad('Остановите сервер, чтобы скопировать мир');
     const cfg = {
-      ...JSON.parse(JSON.stringify(src)), cover: undefined, logo: undefined, iconSynced: undefined, nameFmt: '', name, id: crypto.randomBytes(4).toString('hex'),
+      ...JSON.parse(JSON.stringify(src)), cover: undefined, logo: undefined, iconSynced: undefined, discord: undefined, nameFmt: '', name, id: crypto.randomBytes(4).toString('hex'),
       rconPassword: crypto.randomBytes(12).toString('hex'), createdAt: new Date().toISOString(),
       port: await nextPort(), domain: '', schedule: [],
     };
@@ -1057,6 +1059,7 @@ export function createRouter() {
   updatesMod.register(r, ctx);
   mapMod.register(r, ctx);
   templatesMod.register(r, ctx);
+  discordMod.register(r, ctx);
 
   return r;
 }

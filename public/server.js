@@ -9,12 +9,13 @@ import { MigrateDialog, MigrationCard } from './migrate.js';
 import { SaveTemplateDialog } from './templates.js';
 import { UpdatesTab } from './updates.js';
 import { MapTab } from './map.js';
+import { DiscordTab } from './discord.js';
 import { useNodes } from './nodes.js';
 
 const TABS = [
   ['overview', 'Обзор', 'chart'], ['console', 'Консоль', 'terminal'], ['players', 'Игроки', 'users'],
   ['config', 'Настройки', 'sliders'], ['mods', 'Моды', 'puzzle'], ['updates', 'Обновления', 'arrowup'], ['backups', 'Бэкапы', 'archive'],
-  ['schedule', 'Расписание', 'clock'], ['network', 'Сеть и домен', 'globe'], ['map', 'Карта', 'map'], ['files', 'Файлы', 'folder'],
+  ['schedule', 'Расписание', 'clock'], ['network', 'Сеть и домен', 'globe'], ['map', 'Карта', 'map'], ['discord', 'Discord', 'msg'], ['files', 'Файлы', 'folder'],
 ];
 
 /* Разделы сервера. Вид A: вкладки в строку, редкие под «Ещё». Виды B и C: вертикальное меню из трёх групп. */
@@ -22,7 +23,7 @@ const TAB = Object.fromEntries(TABS.map(t => [t[0], t]));
 const GROUPS = [
   ['Управление', ['overview', 'console', 'players']],
   ['Контент', ['mods', 'updates', 'map', 'files']],
-  ['Система', ['config', 'backups', 'schedule', 'network']],
+  ['Система', ['config', 'backups', 'schedule', 'network', 'discord']],
 ];
 const PRIMARY = ['overview', 'console', 'players', 'config', 'mods', 'updates'];
 
@@ -111,6 +112,7 @@ export function ServerPage({ id, tab }) {
     mods: () => html`<${ModsTab} s=${s} reload=${load} />`,
     updates: () => html`<${UpdatesTab} s=${s} reload=${load} act=${act} />`,
     map: () => html`<${MapTab} s=${s} reload=${load} act=${act} />`,
+    discord: () => html`<${DiscordTab} s=${s} />`,
     backups: () => html`<${BackupsTab} s=${s} />`,
     schedule: () => html`<${ScheduleTab} s=${s} />`,
     network: () => html`<${NetworkTab} s=${s} reload=${load} />`,

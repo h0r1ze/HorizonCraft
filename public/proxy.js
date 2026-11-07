@@ -168,7 +168,7 @@ export function PanelProxy({ s, onChanged }) {
   return html`<div class="col" style="gap:12px;border-top:1px solid var(--line);padding-top:14px">
     <div class="row wrap"><h3 class="grow">Запросы панели через прокси</h3>
       <${Toggle} on=${on} onChange=${v => !busy && apply(v, node)} label=${on ? 'Включено' : 'Выключено'} /></div>
-    <small class="muted">Поиск и проверка ключа CurseForge выполняет сама панель. Если они закрыты для вашего адреса, можно пустить эти запросы через узел VLESS. Установку сборок выполняют контейнеры серверов, для них прокси включается отдельно на странице сервера.</small>
+    <small class="muted">Поиск и проверка ключа CurseForge выполняет сама панель. Если они закрыты для вашего адреса, можно пустить эти запросы через узел VLESS. Тем же путём идут запросы панели к Discord (табло сервера). Установку сборок выполняют контейнеры серверов, для них прокси включается отдельно на странице сервера.</small>
     ${none ? html`<div class="banner warn" style="margin:0">Узлов пока нет. Добавьте подписку или ссылку в блоке «Прокси для серверов» ниже.</div>`
       : html`<div class="row wrap"><select style="max-width:360px" value=${node} disabled=${busy} onChange=${e => { setNode(e.target.value); if (on) apply(true, e.target.value); }}>
           <option value="">— выберите узел —</option>

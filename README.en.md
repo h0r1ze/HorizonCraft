@@ -83,6 +83,7 @@ Example: `PANEL_PORT=9090 ADMIN_PASSWORD=MySecret123 ./install.sh`
 | 🚚 **Move between machines** | Move a whole server (world, mods, settings) to another machine or node in one click, even a running one: the panel stops it and starts it at the new place |
 | 🔄 **Updates** | New Minecraft versions and fresh versions of plugins and mods: files are recognised by hash on Modrinth and updated on selection, with a backup beforehand |
 | 🗺️ **World map** | A live Dynmap map in one click: plugin, port and link are set up for you |
+| 💬 **Discord status board** | A message with the server status, players, version and address keeps itself up to date in your channel through a webhook, no bot needed. Optional notifications for start, stop and players joining |
 | 📋 **Templates** | Save a configured server (settings, mods, configs) as a template and create new servers from it on any machine |
 | 🌐 **Network & domains** | Many servers behind a single port 25565 by domain (via `mc-router`), extra ports for voice chat or Dynmap |
 | 📁 **Files** | Browse and edit files, upload, extract and download archives |
@@ -121,6 +122,10 @@ Example: `PANEL_PORT=9090 ADMIN_PASSWORD=MySecret123 ./install.sh`
   <tr>
     <td width="50%"><img src="docs/map.png" alt="World map"><br><sub><b>World map.</b> Dynmap in one click</sub></td>
     <td width="50%"><img src="docs/template.png" alt="Create from a template"><br><sub><b>Templates.</b> A new server from a saved template</sub></td>
+  </tr>
+  <tr>
+    <td width="50%"><img src="docs/discord-setup.png" alt="Connecting Discord"><br><sub><b>Discord.</b> Paste the webhook URL and choose the address players see: a domain, a public IP or a LAN address</sub></td>
+    <td width="50%"><img src="docs/discord.png" alt="Discord status board"><br><sub><b>Status board.</b> Refresh rate, event notifications and a preview of the message</sub></td>
   </tr>
 </table>
 
@@ -221,6 +226,20 @@ Files that are not on Modrinth (built by hand or taken from other sites) are lis
 ## 🗺️ World map
 
 The **Map** tab (Paper and Purpur servers) enables [Dynmap](https://modrinth.com/plugin/dynmap) in one click: the panel adds the plugin to the Modrinth auto-install list, picks a free port for the map page (from 8123–8199) and shows a link and a preview. The plugin is downloaded on the next server start. **Render** starts a full render of the world. To share the map with friends, forward the shown port on your router.
+
+## 💬 Discord status board
+
+The **Discord** tab (under "System") turns a single message in your channel into a live status board: online or offline, player count and names, version, address, uptime and memory. No bot is needed, just a webhook.
+
+1. In Discord open the channel: **Channel settings → Integrations → Webhooks → New Webhook → Copy Webhook URL**.
+2. In the panel open the server → **Discord**, paste the URL and click **Connect**.
+3. Choose the **address players see**: ready-made options (the server domain, the machine's public address, the LAN address) fill in with one click, or type your own: a domain, a public IP or a LAN address, with or without a port.
+
+The panel edits the same message instead of flooding the channel. It refreshes every 30 seconds, 1, 2 or 5 minutes, and a start, a stop or a change in player count reaches the board almost immediately. Optionally, separate messages announce events: server started, stopped or crashed, player joined or left. **Send again** deletes the old message and posts a fresh one (for example, to pin it).
+
+- The webhook URL is a secret: the panel never shows it in the interface and leaves it out of clones, migrations and templates. `@everyone` mentions in messages are disabled.
+- Discord is blocked by some providers. Turn on **Settings → CurseForge → "Запросы панели через прокси"** (panel requests through a proxy; the switch appears once a CurseForge key is added) and the Discord requests go through the chosen node.
+- If the panel stops, the message stops updating; the timestamp in it shows this.
 
 ## 📋 Server templates
 

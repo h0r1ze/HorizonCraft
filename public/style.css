@@ -450,3 +450,24 @@ tr.click:hover td { background: var(--panel2); }
   :root[data-ui] .main { padding: 20px 16px 96px; }
   :root[data-ui="c"] .side, :root[data-ui="a"] .side { display: none; }
 }
+
+/* ---------- Вкладка Discord: макет сообщения (цвета самого Discord, не зависят от темы панели) ---------- */
+.dc-steps { margin: 0; padding-left: 22px; line-height: 1.8; color: var(--muted); }
+.dc-steps b { color: var(--text); font-weight: 600; }
+.dc-msg { display: flex; gap: 14px; padding: 16px; border-radius: 12px; background: #313338; color: #dbdee1; font-family: "gg sans", "Segoe UI", system-ui, sans-serif; }
+.dc-ava { width: 40px; height: 40px; border-radius: 50%; flex: none; display: grid; place-items: center; background: #5865f2; color: #fff; font-weight: 700; font-size: 17px; text-transform: uppercase; }
+.dc-who { display: flex; align-items: center; gap: 8px; margin-bottom: 4px; }
+.dc-who b { color: #f2f3f5; font-weight: 600; }
+.dc-who small { color: #949ba4; font-size: 12px; }
+.dc-bot { background: #5865f2; color: #fff; font-size: 10px; font-weight: 600; padding: 1px 5px; border-radius: 4px; }
+.dc-embed { background: #2b2d31; border-left: 4px solid #2ecc71; border-radius: 4px; padding: 10px 14px 12px; max-width: 520px; }
+.dc-title { color: #f2f3f5; font-weight: 700; font-size: 16px; margin-bottom: 8px; overflow-wrap: anywhere; }
+.dc-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(190px, 1fr)); gap: 10px 18px; }
+.dcf b { display: block; color: #f2f3f5; font-size: 13px; font-weight: 600; margin-bottom: 2px; }
+.dcf span { font-size: 14px; } .dcf span b { display: inline; font-size: 14px; }
+.dcf span { overflow-wrap: anywhere; }
+.dcf .mono { display: inline-block; max-width: 100%; font-size: 12.5px; background: #1e1f22; padding: 1px 5px; border-radius: 4px; }
+.dc-foot { margin-top: 10px; color: #949ba4; font-size: 12px; }
+
+.chip.pick { cursor: pointer; border: 0; font: inherit; font-size: 12.5px; padding: 4px 10px; } .chip.pick:hover { filter: brightness(1.15); }
+.chip.pick .mono { font-size: 12px; }
