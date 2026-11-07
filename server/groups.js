@@ -52,20 +52,43 @@ const DEFAULT_PERMS = BY_ID.horizon.perms;
 const PLUGINS = [
   { key: 'luckperms', slug: 'luckperms', title: 'LuckPerms', jar: /^luckperms.*\.jar$/i },
   { key: 'essentials', slug: 'essentialsx', title: 'EssentialsX', jar: /^essentials(x)?[-_.]?\d.*\.jar$|^essentials\.jar$|^essentialsx\.jar$/i },
+  // для чата без скобок: формат чата (EssentialsX Chat) и мост Vault, через который Essentials берёт префиксы из LuckPerms
+  { key: 'chat', slug: 'essentialsx-chat-module', title: 'EssentialsX Chat', jar: /^essentialsxchat.*\.jar$/i },
+  { key: 'vault', slug: 'vaultunlocked', title: 'VaultUnlocked', jar: /^vault.*\.jar$/i },
 ];
+const CORE = ['luckperms', 'essentials'], CHAT = ['chat', 'vault'];
 const pluginsDir = cfg => path.join(dk.serverDir(cfg.id), 'plugins');
 const files = cfg => { try { return fs.readdirSync(pluginsDir(cfg)); } catch { return []; } };
+
+/* Сервер Minecraft работает не от root (uid 1000). Папку plugins, созданную панелью от root, он не может дополнить:
+   плагины не создают свои папки (LuckPerms: «AccessDeniedException», Essentials: «node is null») и отключаются. */
+const OWNER = 1000;
+const own = p => { try { fs.chownSync(p, OWNER, OWNER); } catch {} };
+function ownTree(dir) {
+  own(dir);
+  let list = [];
+  try { list = fs.readdirSync(dir, { withFileTypes: true }); } catch { return; }
+  for (const e of list) { const f = path.join(dir, e.name); if (e.isDirectory()) ownTree(f); else own(f); }
+}
+/** Возвращает true, если права на папку plugins пришлось исправить (серверу нужен перезапуск). */
+export function fixPerms(cfg) {
+  const d = pluginsDir(cfg);
+  try { const st = fs.statSync(d); if (st.uid === OWNER || process.getuid?.() !== 0) return false; } catch { return false; }
+  ownTree(d);
+  return true;
+}
 export const jarsOf = cfg => Object.fromEntries(PLUGINS.map(p => [p.key, files(cfg).some(n => p.jar.test(n))]));
 
 /** Скачивает недостающие плагины. Выбирается свежий релиз для Paper без привязки к версии игры:
     у EssentialsX метка «поддерживаемая версия» обычно отстаёт от новых версий Minecraft, а плагин при этом работает. */
-export async function install(cfg) {
+export async function install(cfg, keys = CORE) {
   if (!SUPPORTED.includes(cfg.type)) throw bad('Группы работают на Paper и Purpur');
   const { mr, download, CDN_HOST } = await import('./updates.js');
   const have = jarsOf(cfg), done = [];
   fs.mkdirSync(pluginsDir(cfg), { recursive: true });
+  own(pluginsDir(cfg));
   for (const p of PLUGINS) {
-    if (have[p.key]) continue;
+    if (have[p.key] || !keys.includes(p.key)) continue;
     const loaders = encodeURIComponent(JSON.stringify(cfg.type === 'PURPUR' ? ['purpur', 'paper', 'spigot', 'bukkit'] : ['paper', 'spigot', 'bukkit']));
     const versions = await mr(`/project/${p.slug}/version?loaders=${loaders}`);
     const v = versions.find(x => x.version_type === 'release') || versions[0];
@@ -77,7 +100,7 @@ export async function install(cfg) {
     const dest = path.join(pluginsDir(cfg), name), tmp = dest + '.hcdl';
     await download(f.url, tmp, f.hashes?.sha1, f.size);
     fs.renameSync(tmp, dest);
-    try { fs.chownSync(dest, 1000, 1000); } catch {}
+    own(dest);
     done.push({ plugin: p.title, file: name, version: v.version_number });
   }
   return done;
@@ -139,13 +162,19 @@ export async function ready(cfg) {
   const i = await dk.inspect(cfg.id);
   return !!i?.State.Running && i.State.Health?.Status !== 'starting';
 }
-/** Загружены ли оба плагина (команда plugins перечисляет их по именам). */
-export async function loaded(cfg) {
+/** Состояние плагинов: в списке (команда plugins) и действительно работают. Отключённый плагин тоже виден в списке,
+    но его команды отвечают ошибкой «unexpected error». chat: загружены ли модуль чата и Vault. */
+export async function pluginState(cfg) {
   try {
     const out = await dk.rcon(cfg.id, 'plugins');
-    return /LuckPerms/.test(out) && /Essentials/.test(out);
-  } catch { return false; }
+    const listed = /LuckPerms/.test(out) && /Essentials/.test(out);
+    if (!listed) return { ok: false, chat: false };
+    const fail = /unexpected error/i;
+    const ok = !fail.test(await dk.rcon(cfg.id, 'lp info')) && !fail.test(await dk.rcon(cfg.id, 'essentials:fly'));
+    return { ok, chat: ok && /EssentialsChat/.test(out) && /Vault/.test(out) };
+  } catch { return { ok: false, chat: false }; }
 }
+export const loaded = async cfg => (await pluginState(cfg)).ok;
 const lp = (cfg, cmd) => dk.rcon(cfg.id, 'lp ' + cmd);
 
 /** Создаёт в LuckPerms пять групп с правами и настраивает группу default (права HORIZON). */
@@ -177,7 +206,7 @@ export function onPoll(cfg, L, online, startedAt) {
   if (!cfg.groups?.on) return;
   if (L.groupStamp !== startedAt) {
     L.groupStamp = startedAt; L.groupDone = new Set();
-    loaded(cfg).then(ok => { if (ok) return applyAll(cfg); L.groupStamp = null; }).catch(e => { L.groupStamp = null; console.error('groups', e.message); });
+    loaded(cfg).then(ok => { if (ok) return applyAll(cfg).then(() => applyChat(cfg)); L.groupStamp = null; }).catch(e => { L.groupStamp = null; console.error('groups', e.message); });
     return;
   }
   const members = membersOf(cfg);
@@ -189,13 +218,74 @@ export function onPoll(cfg, L, online, startedAt) {
   }
 }
 
+/* ---------- чат без скобок: «[ADMIN] Ник: сообщение» вместо «<Ник> сообщение» ----------
+   Скобки входят в стандартный формат чата Minecraft. Формат меняет модуль EssentialsX Chat, а префиксы он берёт из LuckPerms
+   через Vault (приписка команды team ему не видна: {TEAMPREFIX} в этой сборке пустой). Поэтому панель дублирует приписки
+   игроков в метаданные LuckPerms (префикс и суффикс с приоритетом 100). */
+export const CHAT_FORMAT = '{DISPLAYNAME}&7:&r {MESSAGE}';
+export const CHAT_DEFAULT = '<{DISPLAYNAME}> {MESSAGE}';
+const essentialsConfig = cfg => path.join(pluginsDir(cfg), 'Essentials', 'config.yml');
+
+/** Подставляет формат чата в раздел chat: конфигурации Essentials. null, если такого раздела нет. */
+export function patchChatFormat(text, format) {
+  const i = text.search(/^chat:[ \t]*$/m);
+  if (i < 0) return null;
+  const rest = text.slice(i), re = /^  format: .*$/m, m = re.exec(rest);
+  if (!m) return null;
+  const current = m[0].replace(/^  format:\s*/, '').replace(/^'(.*)'$/, '$1');
+  if (current === format) return { text, changed: false, current };
+  return { text: text.slice(0, i) + rest.replace(re, () => `  format: '${format}'`), changed: true, current };
+}
+
+/** Записывает формат чата в конфигурацию Essentials. 'pending': конфигурации ещё нет (создаётся при первом запуске). */
+export function applyChatFormat(cfg, on) {
+  const file = essentialsConfig(cfg);
+  let text;
+  try { text = fs.readFileSync(file, 'utf8'); } catch { return 'pending'; }
+  const cur = patchChatFormat(text, on ? CHAT_FORMAT : CHAT_DEFAULT);
+  if (!cur) return 'pending';
+  // выключая, возвращаем стандартный формат только если стоял наш, чужую настройку не трогаем
+  if (!on && cur.current !== CHAT_FORMAT) return 'same';
+  if (!cur.changed) return 'same';
+  fs.writeFileSync(file, cur.text);
+  return 'changed';
+}
+
+const q = s => String(s || '').replace(/["\r\n§]/g, '').trim();
+async function chatTarget(cfg, nick) { return (await uuidFor(cfg, nick)) || nick; }
+/** Передаёт приписку игрока в LuckPerms: префикс и суффикс, которые Essentials выводит в чате. */
+export async function applyChatTag(cfg, nick, tag) {
+  if (!cfg.groups?.on || !cfg.groups.chat || !NICK.test(nick)) return;
+  const t = await chatTarget(cfg, nick), pre = q(tag?.prefix), suf = q(tag?.suffix);
+  await lp(cfg, pre ? `user ${t} meta setprefix 100 "${pre} "` : `user ${t} meta removeprefix 100`);
+  await lp(cfg, suf ? `user ${t} meta setsuffix 100 " ${suf}"` : `user ${t} meta removesuffix 100`);
+}
+export async function removeChatTag(cfg, nick) {
+  if (!cfg.groups?.on || !NICK.test(nick)) return;
+  const t = await chatTarget(cfg, nick);
+  await lp(cfg, `user ${t} meta removeprefix 100`);
+  await lp(cfg, `user ${t} meta removesuffix 100`);
+}
+/** После запуска сервера и при включении: формат чата и приписки всех игроков. */
+export async function applyChat(cfg, force = false) {
+  const g = cfg.groups;
+  if (!g?.on) return 'off';
+  const res = applyChatFormat(cfg, !!g.chat);
+  if (res === 'changed' || force) await dk.rcon(cfg.id, 'essentials:essentials reload').catch(() => {});
+  if (g.chat) for (const [nick, tag] of Object.entries(cfg.tags || {})) await applyChatTag(cfg, nick, tag).catch(e => console.error('groups chat', nick, e.message));
+  return res;
+}
+
 /* ---------- описание для интерфейса ---------- */
 export async function status(cfg) {
   const jars = jarsOf(cfg), supported = SUPPORTED.includes(cfg.type);
+  if (supported && cfg.groups?.on && fixPerms(cfg)) { cfg.groups.fixedAt = Date.now(); store.save(); }
   const up = supported && (await ready(cfg).catch(() => false));
+  const st = up ? await pluginState(cfg) : { ok: false, chat: false };
   return {
     supported, type: cfg.type, jars, installed: jars.luckperms && jars.essentials, on: !!cfg.groups?.on,
-    active: up && (await loaded(cfg)), members: membersOf(cfg),
+    active: st.ok, members: membersOf(cfg), fixedAt: cfg.groups?.fixedAt || 0,
+    chat: { on: !!cfg.groups?.chat, installed: jars.chat && jars.vault, loaded: st.chat },
     groups: GROUPS.map(({ id, name, prefix, title, can, cant }) => ({ id, name, prefix, title, can, cant })),
   };
 }
@@ -212,6 +302,23 @@ export function register(r, { h, view, busy }) {
     cfg.groups.members ||= {};
     store.save();
     res.json({ ...(await status(cfg)), downloaded: done, server: await view(cfg) });
+  }));
+
+  // Чат без скобок: ставит модуль чата и Vault, меняет формат, передаёт приписки в LuckPerms
+  r.post('/servers/:id/groups/chat', h(async (req, res) => {
+    const cfg = req.cfg, on = !!req.body?.on;
+    if (!cfg.groups?.on) throw bad('Сначала включите группы');
+    if (busy.has(cfg.id)) throw bad('Сервер занят: ' + busy.get(cfg.id), 409);
+    const downloaded = on ? await install(cfg, CHAT) : [];
+    cfg.groups.chat = on;
+    store.save();
+    let applied = false;
+    if (await ready(cfg) && (await pluginState(cfg)).chat) {
+      if (!on) for (const nick of Object.keys(cfg.tags || {})) await removeChatTag(cfg, nick).catch(() => {});
+      await applyChat(cfg, true);
+      applied = true;
+    }
+    res.json({ ...(await status(cfg)), downloaded, applied, restart: on && !applied });
   }));
 
   // Применить права заново (после ручных правок в LuckPerms или если плагины загрузились позже)

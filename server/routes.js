@@ -775,23 +775,26 @@ export function createRouter() {
         } catch (e) { groupError = e.message; }
       }
     }
-    if (old && old !== nick) { delete tags[old]; if (live) await sv.removeTag(req.cfg, old).catch(() => {}); }
+    if (old && old !== nick) { delete tags[old]; if (live) { await sv.removeTag(req.cfg, old).catch(() => {}); await groupsMod.removeChatTag(req.cfg, old).catch(() => {}); } }
     if (!tag.prefix && !tag.suffix && !tag.color) {
       delete tags[nick]; store.save();
-      if (live) await sv.removeTag(req.cfg, nick).catch(() => {});
+      if (live) { await sv.removeTag(req.cfg, nick).catch(() => {}); await groupsMod.removeChatTag(req.cfg, nick).catch(() => {}); }
       return res.json({ tags, applied: live, error: groupError });
     }
     tags[nick] = tag;
     store.save();
     let errors = [];
-    if (live) { try { errors = await sv.applyTag(req.cfg, nick, tag); } catch (e) { errors = [e.message]; } }
+    if (live) {
+      try { errors = await sv.applyTag(req.cfg, nick, tag); } catch (e) { errors = [e.message]; }
+      if (req.cfg.groups?.chat) await groupsMod.applyChatTag(req.cfg, nick, tag).catch(() => {});   // приписка в чате без скобок
+    }
     res.json({ tags, applied: live && !errors.length, error: errors[0] || groupError || null });
   }));
   r.delete('/servers/:id/tags/:nick', h(async (req, res) => {
     const tags = req.cfg.tags || {};
     const key = Object.keys(tags).find(k => k.toLowerCase() === String(req.params.nick).toLowerCase());
     const live = await ready(req.cfg);
-    if (key) { delete tags[key]; store.save(); if (live) await sv.removeTag(req.cfg, key).catch(() => {}); }
+    if (key) { delete tags[key]; store.save(); if (live) { await sv.removeTag(req.cfg, key).catch(() => {}); await groupsMod.removeChatTag(req.cfg, key).catch(() => {}); } }
     // вместе с припиской игрок теряет и группу: права возвращаются к обычным
     const nick = key || String(req.params.nick);
     if (Object.keys(groupsMod.membersOf(req.cfg)).some(k => k.toLowerCase() === nick.toLowerCase())) {

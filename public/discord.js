@@ -132,7 +132,7 @@ export function DiscordTab({ s }) {
     try { set(await api(`/servers/${s.id}/discord`, { method: 'DELETE' }), true); setUrl(''); toast('Discord отключён'); }
     catch (e) { toast(e.message, 'err'); }
   };
-  const dirty = f.on !== d.on || f.lang !== d.lang || f.interval !== d.interval || f.address !== d.address || f.events.state !== d.events.state || f.events.join !== d.events.join || f.proxy.on !== d.proxy.on || (f.proxy.on && f.proxy.node !== d.proxy.node);
+  const dirty = f.on !== d.on || f.lang !== d.lang || f.interval !== d.interval || f.address !== d.address || ['started', 'stopped', 'crashed', 'join'].some(k => f.events[k] !== d.events[k]) || f.proxy.on !== d.proxy.on || (f.proxy.on && f.proxy.node !== d.proxy.node);
   const addr = f.address || d.autoAddress;
 
   if (!d.connected) {
@@ -175,8 +175,11 @@ export function DiscordTab({ s }) {
       </div>
       <${MsgLang} value=${f.lang} onChange=${v => setF({ ...f, lang: v })} />
       <div class="col" style="gap:8px"><h3 style="margin:4px 0 0">Отдельные сообщения о событиях</h3>
-        <${Toggle} on=${f.events.state} onChange=${v => setF({ ...f, events: { ...f.events, state: v } })} label="Сервер запущен, остановлен или упал" />
-        <${Toggle} on=${f.events.join} onChange=${v => setF({ ...f, events: { ...f.events, join: v } })} label="Игрок зашёл или вышел" /></div>
+        <${Toggle} on=${f.events.started} onChange=${v => setF({ ...f, events: { ...f.events, started: v } })} label="Сервер запущен" />
+        <${Toggle} on=${f.events.stopped} onChange=${v => setF({ ...f, events: { ...f.events, stopped: v } })} label="Сервер остановился" />
+        <${Toggle} on=${f.events.crashed} onChange=${v => setF({ ...f, events: { ...f.events, crashed: v } })} label="Сервер упал (завершился с ошибкой)" />
+        <${Toggle} on=${f.events.join} onChange=${v => setF({ ...f, events: { ...f.events, join: v } })} label="Игрок зашёл или вышел" />
+        <small class="muted">Каждое событие о запуске, остановке и падении приходит не чаще раза в 10 минут. Само табло обновляется без новых сообщений.</small></div>
       <${ProxyBox} s=${s} d=${d} value=${f.proxy} onChange=${v => setF({ ...f, proxy: v })} />
       <div class="row wrap" style="gap:10px">
         <${Btn} kind="primary" icon="save" disabled=${busy || !dirty} onClick=${() => put(f, 'Сохранено')}>Сохранить</${Btn}>

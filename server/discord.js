@@ -47,6 +47,12 @@ const STR = {
   },
 };
 export const LANGS = ['ru', 'en'];
+/** События по отдельности: запуск, остановка, падение, вход и выход игроков. Прежняя настройка «state» означала остановку и падение, без запуска. */
+export function eventsOf(d) {
+  const e = d?.events || {}, legacy = 'state' in e && !('started' in e || 'stopped' in e || 'crashed' in e);
+  return { started: legacy ? false : !!e.started, stopped: legacy ? !!e.state : !!e.stopped, crashed: legacy ? !!e.state : !!e.crashed, join: !!e.join };
+}
+const STATE_GAP = 10 * 60e3;   // одно и то же событие состояния не чаще, чем раз в 10 минут (защита от перезапусков по кругу)
 const sOf = cfg => STR[cfg.discord?.lang === 'en' ? 'en' : 'ru'];
 const fmtDur = (ms, U) => {
   const m = Math.max(0, Math.floor(ms / 60e3)), d = Math.floor(m / 1440), h = Math.floor((m % 1440) / 60);
@@ -170,13 +176,15 @@ export async function syncOne(cfg, force = false) {
 
     // события: сравниваем с прошлым проходом (после перезапуска панели первый проход ничего не шлёт)
     if (m.prevState !== undefined && !(m.retryAt > now)) {
-      const ev = d.events || {}, X = sOf(cfg);
-      const lines = [];
-      if (ev.state && state !== m.prevState) {
-        if (state === 'running') lines.push([X.started, 0x2ecc71]);
+      const ev = eventsOf(d), X = sOf(cfg);
+      const lines = [], due = k => !(m.lastEvent?.[k] > now - STATE_GAP);
+      const mark = k => { (m.lastEvent ||= {})[k] = now; };
+      if (state !== m.prevState) {
+        if (state === 'running') { if (ev.started && due('started')) { lines.push([X.started, 0x2ecc71]); mark('started'); } }
         else if (state === 'stopped' && m.prevState !== 'missing') {
-          const code = info?.State?.ExitCode;
-          lines.push(code && ![0, 137, 143].includes(code) ? [X.crashed(code), 0xe74c3c] : [X.stopped, 0xe74c3c]);
+          const code = info?.State?.ExitCode, crashed = !!code && ![0, 137, 143].includes(code);
+          const k = crashed ? 'crashed' : 'stopped';
+          if (ev[k] && due(k)) { lines.push(crashed ? [X.crashed(code), 0xe74c3c] : [X.stopped, 0xe74c3c]); mark(k); }
         }
       }
       if (ev.join && state === 'running' && m.prevState === 'running' && m.prevOnline && L.at && L.at !== m.prevAt) {
@@ -215,6 +223,13 @@ export function proxyNodes() {
   if (e) list.push({ id: 'external', name: 'Свой прокси', host: `${e.host}:${e.port}` });
   return list;
 }
+const nextEvents = (b, d) => {
+  const cur = eventsOf(d);
+  if (!b || typeof b !== 'object') return cur;
+  const legacyOnly = 'state' in b && !('started' in b || 'stopped' in b || 'crashed' in b);
+  const pick = (k, legacy) => (k in b ? !!b[k] : legacyOnly && legacy != null ? !!legacy : cur[k]);
+  return { started: pick('started'), stopped: pick('stopped', b.state), crashed: pick('crashed', b.state), join: pick('join') };
+};
 const cleanProxy = (b, cur) => {
   if (b === undefined) return cur || { on: false, node: '' };
   const on = !!b?.on, node = String(b?.node || '');
@@ -229,7 +244,7 @@ export function pub(cfg) {
   return {
     on: !!d.on, connected: !!hook, hook: hook ? `…/webhooks/${hook.id}/••••${hook.token.slice(-4)}` : '',
     interval: d.interval || 60, address: d.address || '', lang: d.lang === 'en' ? 'en' : 'ru', autoAddress: addressOf({ ...cfg, discord: {} }),
-    events: { state: !!d.events?.state, join: !!d.events?.join },
+    events: eventsOf(d),
     posted: !!d.messageId, sentAt: m.okAt || null, error: m.error || '',
     proxy: { on: !!d.proxy?.on && !!endpointOf(d.proxy), node: d.proxy?.node || '', name: proxyName(d.proxy) },
     proxyNodes: proxyNodes(),
@@ -260,7 +275,7 @@ export function register(r, { h, view }) {
     const proxy = cleanProxy(b.proxy, d.proxy);
     cfg.discord = {
       ...d, url, on, interval, address, proxy, lang, messageId: d.messageId || '',
-      events: { state: b.events ? !!b.events.state : !!d.events?.state, join: b.events ? !!b.events.join : !!d.events?.join },
+      events: nextEvents(b.events, d),
     };
     store.save();
     const m = M(cfg.id);

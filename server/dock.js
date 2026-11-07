@@ -298,8 +298,22 @@ export async function exec(id, cmd) {
     setTimeout(done, 10000);
   });
 }
+/* На серверах Paper и Purpur плагины (EssentialsX и др.) перехватывают имена ванильных команд: «list», «kick», «ban», «tell»
+   и другие из RCON отвечают ошибкой «An unexpected error occurred». Поэтому панель вызывает их с префиксом minecraft:,
+   он всегда указывает на ванильную команду. На остальных серверах (Vanilla, Fabric, Forge) префикс не нужен и не ставится. */
+export const BUKKIT_TYPES = ['PAPER', 'PURPUR'];
+const VANILLA_CMDS = new Set(['list', 'kick', 'ban', 'ban-ip', 'pardon', 'pardon-ip', 'tell', 'msg', 'w', 'me', 'say', 'gamemode', 'give', 'tp', 'teleport', 'clear',
+  'kill', 'time', 'weather', 'difficulty', 'op', 'deop', 'whitelist', 'tellraw', 'save-all', 'save-on', 'save-off', 'team', 'gamerule', 'effect', 'enchant', 'xp', 'experience',
+  'setworldspawn', 'spawnpoint', 'title', 'playsound', 'summon', 'fill', 'setblock', 'seed', 'banlist']);
+export function rconLine(id, line) {
+  const cmd = String(line).trim();
+  const cfg = store.get().servers.find(s => s.id === id);
+  if (!cfg || !BUKKIT_TYPES.includes(cfg.type)) return cmd;
+  const first = cmd.split(/\s+/)[0];
+  return VANILLA_CMDS.has(first.toLowerCase()) ? 'minecraft:' + cmd : cmd;
+}
 export async function rcon(id, line) {
-  const out = await exec(id, ['rcon-cli', ...String(line).trim().split(/\s+/)]);
+  const out = await exec(id, ['rcon-cli', ...rconLine(id, line).split(/\s+/)]);
   return out.replace(/\x1b\[[0-9;]*m/g, '').replace(/§./g, '').trim();
 }
 

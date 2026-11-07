@@ -1,4 +1,4 @@
-import { html, useState, Icon, Btn, toast, askConfirm, plural, t } from './ui.js';
+import { html, useState, Icon, Btn, Toggle, toast, askConfirm, plural, t } from './ui.js';
 import { api } from './api.js';
 import { FmtText } from './mcfmt.js';
 
@@ -49,6 +49,15 @@ export function GroupsCard({ s, gs, reload }) {
     } catch (x) { toast(x.message, 'err'); }
     setBusy('');
   };
+  const chat = async on => {
+    setBusy('chat');
+    try {
+      const r = await api(`/servers/${s.id}/groups/chat`, { method: 'POST', body: { on } });
+      toast(r.restart ? 'Плагины чата скачаны. Перезапустите сервер, чтобы включить чат без скобок.' : on ? 'Чат без скобок включён' : 'Стандартный чат возвращён');
+      await reload();
+    } catch (x) { toast(x.message, 'err'); }
+    setBusy('');
+  };
   const apply = async () => {
     setBusy('apply');
     try { await api(`/servers/${s.id}/groups/apply`, { method: 'POST' }); toast('Права групп применены'); await reload(); }
@@ -75,6 +84,7 @@ export function GroupsCard({ s, gs, reload }) {
         создаст пять групп и будет выдавать их игрокам. После включения сервер нужно перезапустить.</span>
         <${Btn} kind="primary" icon="download" disabled=${!!busy} onClick=${enable}>${busy === 'enable' ? 'Скачиваем плагины…' : 'Включить группы'}</${Btn}></div>`}
 
+    ${gs.on && gs.fixedAt > 0 && (!s.startedAt || Date.parse(s.startedAt) < gs.fixedAt) && html`<div class="banner warn" style="margin:0">Папка plugins была недоступна серверу, из-за этого плагины не запускались. Права исправлены, перезапустите сервер.</div>`}
     ${gs.on && up && !gs.active && html`<div class="banner warn" style="margin:0">Плагины скачаны, но ещё не загружены. Перезапустите сервер: после запуска права применятся сами.</div>`}
     ${gs.on && !up && html`<div class="banner info" style="margin:0">Сервер остановлен. Группы и права применятся автоматически при запуске.</div>`}
 
@@ -86,6 +96,9 @@ export function GroupsCard({ s, gs, reload }) {
         : html`<small class="muted">${g.can[0]}</small>`}
     </div>`)}</div>
 
+    ${gs.on && html`<div class="col" style="gap:6px"><${Toggle} on=${gs.chat?.on} onChange=${chat} label="Чат без скобок «< >»: [ADMIN] Ник: сообщение" />
+      <small class="muted">Скобки входят в стандартный формат чата Minecraft. Панель ставит модуль чата EssentialsX и Vault и передаёт приписки игроков в чат. После включения нужен перезапуск сервера.</small>
+      ${gs.chat?.on && gs.active && !gs.chat.loaded && html`<div class="banner warn" style="margin:0">Модуль чата ещё не подключился. Перезапустите сервер.</div>`}</div>`}
     ${gs.on && html`<div class="row wrap"><small class="muted grow">Игрок получает группу при выборе в форме ниже. Не назначенные игроки получают обычные права (как HORIZON).</small>
       <${Btn} kind="sm" icon="refresh" disabled=${!!busy || !gs.active} title=${gs.active ? '' : 'Доступно, когда сервер запущен и плагины загружены'} onClick=${apply}>${busy === 'apply' ? 'Применяем…' : 'Применить права заново'}</${Btn}></div>`}
   </div>`;

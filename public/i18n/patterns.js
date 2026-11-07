@@ -44,6 +44,7 @@ export default [
     (t, a) => `Could not open the subscription (${t(a)}). If the URL is not reachable from the server, paste the subscription content manually.`],
   [/^Сервер подписки ответил (\d+)$/, (t, a) => `The subscription server responded ${a}`],
   [/^(\d+) потоков$/, (t, a) => `${a} threads`],
+  [/^из (\d+)$/, (t, a) => `of ${a}`],
   [/^≈ (.+) из (.+) ядер процессора$/, (t, a, b) => `≈ ${a} of ${b} CPU cores`],
   [/^(\d+) сообщений в истории$/, (t, a) => `${a} messages in the history`],
   [/^(.+) \(&([0-9a-f])\)$/, (t, a, b) => `${t(a)} (&${b})`],

@@ -251,7 +251,7 @@ The **Discord** tab (under "System") turns a single message in your channel into
 2. In the panel open the server → **Discord**, paste the URL and click **Connect**.
 3. Choose the **address players see**: ready-made options (the server domain, the machine's public address, the LAN address) fill in with one click, or type your own: a domain, a public IP or a LAN address, with or without a port.
 
-The panel edits the same message instead of flooding the channel. It refreshes every 30 seconds, 1, 2 or 5 minutes, and a start, a stop or a change in player count reaches the board almost immediately. Optionally, separate messages announce events: server started, stopped or crashed, player joined or left. **Send again** deletes the old message and posts a fresh one (for example, to pin it).
+The panel edits the same message instead of flooding the channel. It refreshes every 30 seconds, 1, 2 or 5 minutes, and a start, a stop or a change in player count reaches the board almost immediately. Optionally, separate messages announce events, each with its own switch: 'server started' (off by default), 'stopped', 'crashed', 'player joined or left'. The same server-state event arrives at most once every 10 minutes, so restarts do not clutter the channel. **Send again** deletes the old message and posts a fresh one (for example, to pin it).
 
 - The webhook URL is a secret: the panel never shows it in the interface and leaves it out of clones, migrations and templates. `@everyone` mentions in messages are disabled.
 - Discord is blocked by some providers. The tab has its own **Send through a proxy** block: turn it on and pick a node from those added under **Settings → "Прокси для серверов"** (a 3x-ui subscription, a `vless://` link or your own proxy). Only this board's requests use it; the rest of the traffic is unchanged. **Check connection** shows at once whether Discord opens and accepts the webhook. For servers on nodes, the nodes of the machine that runs the server are used.
@@ -274,8 +274,13 @@ The **Players → Player groups** block gives you five ready-made groups. Permis
 3. In the **Name tags** form enter a nickname and pick a group. The group's name tag is filled in automatically. You can assign a player in advance: the group is applied when they join.
 
 - Teleport for VIP and HORIZON works by request: `/tpa`, `/tpahere` and `/tpaccept` by the other player (FLY has no teleport). A direct `/tp` is only available to ADMIN and MODERATOR.
+- **Chat without brackets.** The `<` `>` brackets are part of Minecraft's standard chat format. The **Chat without brackets** switch in the groups card installs the EssentialsX chat module and Vault and passes the players' name tags into LuckPerms; the format becomes `[ADMIN] Nick: message`. The tag colour is kept. A server restart is needed after enabling. The panel's Chat tab understands both formats.
 - Permissions are bound to the player's UUID, so changing the nickname's letter case or assigning again duplicates nothing.
 - EssentialsX officially supports Minecraft versions with a small delay. On the very newest versions the log may show an "unsupported server version" warning; the plugin still loads.
+
+### If the plugins do not start
+
+The Minecraft server does not run as root, so the `plugins` folder must belong to its user. If an earlier panel version created it, the plugins get disabled with an `AccessDeniedException`, and commands like `list` and `weather` answer "unexpected error". The panel fixes the permissions by itself when you open the **Players** tab and suggests restarting the server. On Paper and Purpur it also runs vanilla commands (`list`, `kick`, `ban`, `tell`, `gamemode`, `weather`, `time` and others) with the `minecraft:` prefix so plugins cannot intercept them.
 
 ## 🧹 World clearing
 
