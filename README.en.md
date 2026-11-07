@@ -26,18 +26,20 @@ Create, configure and maintain multiple servers from your browser. No Java, port
 
 ## ⚡ One-line install
 
+<p align="center">
+  <picture>
+    <source media="(prefers-color-scheme: dark)" srcset="docs/install-en-dark.svg">
+    <img src="docs/install-en-light.svg" alt="The HorizonCraft install command and its result: panel URL and password" width="860">
+  </picture>
+</p>
+
+**Copy the command** (button on the right of the block) and run it on a Linux server:
+
 ```bash
 curl -fsSL https://raw.githubusercontent.com/h0r1ze/HorizonCraft/main/install.sh | bash
 ```
 
-The script checks for Docker (and offers to install it), downloads the project, creates a `.env` with a random admin password, then builds and starts the panel. When it finishes it prints the URL and the password:
-
-```text
-  Done!
-
-  Panel URL:  http://192.168.1.50:8088
-  Password:   kP3xV9aQmT7wLz2R   (saved in ~/horizoncraft/.env)
-```
+The script checks for Docker (and offers to install it), downloads the project, creates a `.env` with a random admin password, then builds and starts the panel. When it finishes it prints the URL and the password, as in the picture above (the password is saved in `~/horizoncraft/.env`).
 
 <details>
 <summary><b>Manual install</b></summary>
