@@ -1,0 +1,29 @@
+services:
+  panel:
+    build: .
+    image: horizoncraft:latest
+    container_name: horizoncraft
+    restart: unless-stopped
+    ports:
+      - "${PANEL_PORT:-8088}:8088"
+    environment:
+      # Путь к данным ДОЛЖЕН быть абсолютным и одинаковым на хосте и в контейнере:
+      # панель сама создаёт контейнеры серверов и монтирует им папки по этому пути.
+      - DATA_DIR=${DATA_DIR:?Укажите DATA_DIR в файле .env (запустите ./install.sh)}
+      - TZ=${TZ:-UTC}
+      - ADMIN_PASSWORD=${ADMIN_PASSWORD:-}
+      # Режим агента: если задан (от 24 символов), эту машину можно подключить нодой к главной панели
+      - AGENT_TOKEN=${AGENT_TOKEN:-}
+      # HTTPS. Заданные здесь значения используются только при первом запуске, дальше настройки меняются в панели
+      # (Настройки → Безопасность). PANEL_PORT нужен панели, чтобы показать в интерфейсе, на каком порту она открыта.
+      - PANEL_PORT=${PANEL_PORT:-8088}
+      - TLS_MODE=${TLS_MODE:-}
+      - TLS_HOST=${TLS_HOST:-}
+      - ACME_EMAIL=${ACME_EMAIL:-}
+      # Для проверки и тестов: свой ACME-каталог (например, Pebble) и способ ответа на проверку
+      - ACME_DIRECTORY=${ACME_DIRECTORY:-}
+      - ACME_INSECURE=${ACME_INSECURE:-}
+      - ACME_PORT=${ACME_PORT:-}
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock
+      - ${DATA_DIR}:${DATA_DIR}

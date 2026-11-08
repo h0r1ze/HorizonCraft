@@ -1,0 +1,11 @@
+# секреты и данные установки: никогда не коммитить
+.env
+data/
+*.bak*
+
+node_modules/
+npm-debug.log*
+.DS_Store
+Thumbs.db
+.vscode/
+.idea/

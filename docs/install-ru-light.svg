@@ -1,0 +1,23 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="940" height="400" viewBox="0 0 940 400" role="img" aria-label="curl -fsSL https://raw.githubusercontent.com/h0r1ze/HorizonCraft/main/install.sh | bash">
+  <defs><filter id="sh" x="-5%" y="-5%" width="110%" height="120%"><feDropShadow dx="0" dy="6" stdDeviation="9" flood-color="#000" flood-opacity=".28"/></filter></defs>
+  <g filter="url(#sh)">
+    <rect x="12" y="8" width="916" height="372" rx="14" fill="#ffffff" stroke="#d0d7de" stroke-width="1.5"/>
+    <path d="M12 22a14 14 0 0 1 14-14h888a14 14 0 0 1 14 14v34H12z" fill="#f6f8fa"/>
+    <line x1="12" y1="56" x2="928" y2="56" stroke="#d0d7de" stroke-width="1.2"/>
+  </g>
+  <circle cx="40" cy="32" r="7" fill="#ff5f56"/><circle cx="64" cy="32" r="7" fill="#ffbd2e"/><circle cx="88" cy="32" r="7" fill="#27c93f"/>
+  <text x="470.0" y="38" text-anchor="middle" font-family="ui-monospace, 'Cascadia Code', 'JetBrains Mono', SFMono-Regular, Consolas, Menlo, 'DejaVu Sans Mono', monospace" font-size="14" fill="#57606a">bash · ваш сервер с Linux</text>
+  <g font-family="ui-monospace, 'Cascadia Code', 'JetBrains Mono', SFMono-Regular, Consolas, Menlo, 'DejaVu Sans Mono', monospace" font-size="18" font-weight="600">
+    <text x="44" y="104" fill="#1a7f37">$</text>
+    <text x="68" y="104" fill="#1f2328">curl <tspan fill="#8250df">-fsSL</tspan> <tspan fill="#57606a">\</tspan></text>
+    <text x="68" y="140" fill="#0550ae" xml:space="preserve">  https://raw.githubusercontent.com/h0r1ze/HorizonCraft/main/install.sh <tspan fill="#57606a">\</tspan></text>
+    <text x="68" y="176" fill="#bc4c00" xml:space="preserve">  | bash</text>
+  </g>
+  <line x1="44" y1="206" x2="896" y2="206" stroke="#d0d7de" stroke-width="1.2" stroke-dasharray="4 6"/>
+  <g font-family="ui-monospace, 'Cascadia Code', 'JetBrains Mono', SFMono-Regular, Consolas, Menlo, 'DejaVu Sans Mono', monospace" font-size="19">
+    <text x="44" y="244" fill="#1a7f37" font-weight="700">✔ Готово!</text>
+    <text x="44" y="280" fill="#57606a">Адрес панели:</text><text x="250" y="280" fill="#0550ae" font-weight="700">https://192.168.1.50:8443</text>
+    <text x="44" y="314" fill="#57606a">Пароль:</text><text x="250" y="314" fill="#1f2328" font-weight="700">kP3xV9aQmT7wLz2R</text>
+    <text x="44" y="356" fill="#57606a" font-size="15.5"># дальше: откройте адрес в браузере и создайте первый сервер</text>
+  </g>
+</svg>

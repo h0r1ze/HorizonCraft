@@ -1,0 +1,20 @@
+{
+  "name": "horizoncraft",
+  "version": "1.1.0",
+  "license": "PolyForm-Noncommercial-1.0.0",
+  "type": "module",
+  "private": true,
+  "dependencies": {
+    "bcryptjs": "^2.4.3",
+    "cookie-parser": "^1.4.6",
+    "dockerode": "^4.0.2",
+    "express": "^4.21.0",
+    "htm": "^3.1.1",
+    "jsonwebtoken": "^9.0.2",
+    "multer": "^1.4.5-lts.1",
+    "preact": "^10.24.0",
+    "sharp": "^0.33.5",
+    "undici": "^6.21.0",
+    "ws": "^8.18.0"
+  }
+}
