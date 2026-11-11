@@ -121,7 +121,7 @@ function ProxyBox({ s, d, value, onChange }) {
     <div class="row wrap"><h3 class="grow" style="margin:0">Связь с Discord</h3>
       <${ViaSwitch} on=${value.on} disabled=${!d.proxy.available} onChange=${on => { setChk(null); onChange({ on }); }} /></div>
     <small class="muted">Discord заблокирован у ряда провайдеров. Через VLESS пойдут только запросы этого табло и подключение бота. Остальной трафик панели и серверов не меняется.</small>
-    ${!d.proxy.available ? html`<${ActiveLine} active=${act} />` : value.on && html`<small class="muted">Узел: <b style="color:var(--text)">${rawHtml`${d.proxy.name}`}</b> · <a href="#/settings">изменить в Настройках</a></small>`}
+    ${!d.proxy.available ? html`<${ActiveLine} active=${act} />` : value.on && html`<small class="muted">Узел: <b style="color:var(--text)">${rawHtml`${d.proxy.name}`}</b> · <a href="#/settings/network">изменить в Настройках</a></small>`}
     <div class="row wrap" style="gap:10px"><${Btn} icon="refresh" disabled=${busy} onClick=${test}>${busy ? 'Проверка…' : 'Проверить связь'}</${Btn}></div>
     ${chk && html`<div class=${'banner ' + (chk.reach && chk.webhook !== 'bad' && chk.bot !== 'bad' ? 'info' : 'warn')} style="margin:0">
       ${chk.reach ? html`Discord доступен${chk.via ? ' (' + chk.via + ')' : ''}, ответ за ${chk.ms} мс.${chk.webhook === 'ok' ? ' Вебхук принимается.' : chk.webhook === 'bad' ? ' Но Discord не признаёт этот вебхук: проверьте адрес.' : ''}${chk.bot === 'ok' ? ' Токен бота принимается.' : chk.bot === 'bad' ? ' Но Discord не принимает токен бота.' : ''}`

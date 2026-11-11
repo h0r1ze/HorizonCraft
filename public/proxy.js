@@ -124,8 +124,8 @@ export function ViaSwitch({ on, onChange, disabled }) {
 /** Строка «Узел: … · режим …» со ссылкой на настройки. */
 export function ActiveLine({ active }) {
   return active?.node
-    ? html`<small class="muted">Узел: <b style="color:var(--text)">${active.name}</b> · режим: <b style="color:var(--text)">${modeName(active.mode)}</b> · <a href="#/settings">изменить в Настройках</a></small>`
-    : html`<div class="banner warn" style="margin:0">Узел VLESS ещё не выбран. Выберите его один раз в <a href="#/settings">Настройках → VLESS и прокси</a>.</div>`;
+    ? html`<small class="muted">Узел: <b style="color:var(--text)">${active.name}</b> · режим: <b style="color:var(--text)">${modeName(active.mode)}</b> · <a href="#/settings/network">изменить в Настройках</a></small>`
+    : html`<div class="banner warn" style="margin:0">Узел VLESS ещё не выбран. Выберите его один раз в <a href="#/settings/network">Настройках → VLESS и прокси</a>.</div>`;
 }
 
 /** Блок на вкладке сервера: напрямую или через VLESS. Узел и режим общие, из Настроек. */

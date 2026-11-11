@@ -48,6 +48,17 @@ export default {
   "Режим TUN работает только в установке через Docker: панель не нашла свой контейнер": "TUN mode works only in a Docker installation: the panel did not find its own container",
   "Не удалось настроить перехват трафика (нужны nftables или iptables в ядре)": "Could not set up traffic interception (the kernel needs nftables or iptables)",
 
+  // ---- Разделы настроек
+  "Оформление": "Appearance",
+  "Сеть": "Network",
+  "Безопасность": "Security",
+  "Серверы и ноды": "Servers and nodes",
+  "Язык, вид интерфейса, тема и фон": "Language, layout, theme and background",
+  "Адрес серверов и VLESS": "Server address and VLESS",
+  "HTTPS, порт панели и пароль": "HTTPS, panel port and password",
+  "CurseForge, образы, шаблоны и ноды": "CurseForge, images, templates and nodes",
+  "Разделы настроек": "Settings sections",
+
   // ---- Не смогли войти
   "Не смогли войти": "Could not join",
   "Неудачных попыток входа нет. Здесь появятся игроки, которых не пустил белый список, бан или другая причина.": "No failed join attempts. Players stopped by the whitelist, a ban or another reason will appear here.",

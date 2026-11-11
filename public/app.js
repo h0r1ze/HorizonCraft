@@ -187,7 +187,25 @@ function UiPicker({ onUi }) {
     <${UiSwatch} id=${u.id} /><b>${u.name}</b><small>${u.desc}</small></button>`)}</div>`;
 }
 
-function SettingsPage({ onTheme, theme, onUi }) {
+/* Разделы настроек: у каждого свой адрес #/settings/<раздел>, поэтому ссылки ведут сразу в нужное место. */
+export const SETTINGS_SECTIONS = [
+  ['look', 'Оформление', 'palette', 'Язык, вид интерфейса, тема и фон'],
+  ['network', 'Сеть', 'globe', 'Адрес серверов и VLESS'],
+  ['security', 'Безопасность', 'shield', 'HTTPS, порт панели и пароль'],
+  ['servers', 'Серверы и ноды', 'server', 'CurseForge, образы, шаблоны и ноды'],
+];
+function SettingsNav({ section }) {
+  const ui = useUi();
+  const go = k => { location.hash = '#/settings/' + k; };
+  if (ui === 'a') return html`<div class="tabs flat">${SETTINGS_SECTIONS.map(([k, n, ic]) => html`<button key=${k} class=${'tab ' + (section === k ? 'on' : '')} onClick=${() => go(k)}><${Icon} n=${ic} />${n}</button>`)}</div>`;
+  return html`<nav class="vmenu" aria-label="Разделы настроек"><div class="grp"><div class="gh">Настройки</div>
+    ${SETTINGS_SECTIONS.map(([k, n, ic]) => html`<button key=${k} class=${'vi ' + (section === k ? 'on' : '')} onClick=${() => go(k)}><${Icon} n=${ic} size=${16} />${n}</button>`)}</div></nav>`;
+}
+
+function SettingsPage({ onTheme, theme, onUi, section: sec0 }) {
+  const ui = useUi();
+  const section = SETTINGS_SECTIONS.some(x => x[0] === sec0) ? sec0 : 'look';
+  const meta = SETTINGS_SECTIONS.find(x => x[0] === section);
   const [s, setS] = useState(null);
   const [key, setKey] = useState('');
   const [host, setHost] = useState('');
@@ -224,9 +242,8 @@ function SettingsPage({ onTheme, theme, onUi }) {
     catch (x) { toast(x.message, 'err'); }
   };
   if (!s) return html`<div class="skeleton"></div>`;
-  return html`<div class="col" style="max-width:760px">
-    <div class="head"><div><h1>Настройки</h1><div class="sub">Общие параметры панели</div></div></div>
-    <${TlsCard} />
+  const parts = {
+    look: html`
     <div class="card col">
       <h2>Язык / Language</h2>
       <p class="muted" style="margin:0">Язык интерфейса панели. Выбор сохраняется в этом браузере. / The panel language. The choice is saved in this browser.</p>
@@ -241,7 +258,27 @@ function SettingsPage({ onTheme, theme, onUi }) {
       <h2>Тема</h2>
       <${ThemePicker} theme=${theme} onTheme=${onTheme} />
     </div>
-    <${BackgroundCard} theme=${theme} />
+    <${BackgroundCard} theme=${theme} />`,
+    network: html`
+    <div class="card col">
+      <h2>Адрес сервера</h2>
+      <${Field} label="Внешний адрес или домен по умолчанию" hint="Показывается игрокам в панели. Если пусто, используется адрес, по которому открыта панель.">
+        <input placeholder="например, play.example.com" value=${host} onInput=${e => setHost(e.target.value)} />
+      </${Field}>
+      <div><${Btn} kind="primary" onClick=${() => save({ publicHost: host })}>Сохранить</${Btn}></div>
+    </div>
+    <${ProxySettings} />`,
+    security: html`
+    <${TlsCard} />
+    <div class="card col">
+      <h2>Смена пароля</h2>
+      <div class="two">
+        <${Field} label="Текущий пароль"><input type="password" value=${pw.old} onInput=${e => setPw({ ...pw, old: e.target.value })} /></${Field}>
+        <${Field} label="Новый пароль" hint="Минимум 8 символов"><input type="password" value=${pw.next} onInput=${e => setPw({ ...pw, next: e.target.value })} /></${Field}>
+      </div>
+      <div><${Btn} onClick=${changePw} disabled=${!pw.old || !pw.next}>Изменить пароль</${Btn}></div>
+    </div>`,
+    servers: html`
     <div class="card col">
       <h2>CurseForge</h2>
       <p class="muted" style="margin:0">Нужен для установки сборок и модов. Бесплатный ключ выдаётся на${'\u00a0'}<a href="https://console.curseforge.com/" target="_blank" rel="noreferrer">console.curseforge.com</a>${'\u00a0'}(раздел API keys).</p>
@@ -256,30 +293,21 @@ function SettingsPage({ onTheme, theme, onUi }) {
       ${s.cfApiKeySet && html`<${PanelProxy} s=${s} onChanged=${load} />`}
     </div>
     <div class="card col">
-      <h2>Адрес сервера</h2>
-      <${Field} label="Внешний адрес или домен по умолчанию" hint="Показывается игрокам в панели. Если пусто, используется адрес, по которому открыта панель.">
-        <input placeholder="например, play.example.com" value=${host} onInput=${e => setHost(e.target.value)} />
-      </${Field}>
-      <div><${Btn} kind="primary" onClick=${() => save({ publicHost: host })}>Сохранить</${Btn}></div>
-    </div>
-    <${NodesSettings} />
-    <${TemplatesSettings} />
-    <${ProxySettings} />
-    <div class="card col">
       <h2>Образы Minecraft</h2>
       <p class="muted" style="margin:0">Скачивает свежие образы Java и ядра. Чтобы сервер начал использовать новый образ, откройте его и выберите «Пересоздать контейнер».</p>
       <div class="row"><${Btn} icon="refresh" disabled=${!!img?.busy} onClick=${updImg}>${img?.busy || 'Обновить образы'}</${Btn}>
         ${img?.error && html`<span style="color:var(--danger)">${img.error}</span>`}</div>
     </div>
-    <div class="card col">
-      <h2>Смена пароля</h2>
-      <div class="two">
-        <${Field} label="Текущий пароль"><input type="password" value=${pw.old} onInput=${e => setPw({ ...pw, old: e.target.value })} /></${Field}>
-        <${Field} label="Новый пароль" hint="Минимум 8 символов"><input type="password" value=${pw.next} onInput=${e => setPw({ ...pw, next: e.target.value })} /></${Field}>
-      </div>
-      <div><${Btn} onClick=${changePw} disabled=${!pw.old || !pw.next}>Изменить пароль</${Btn}></div>
-    </div>
+    <${TemplatesSettings} />
+    <${NodesSettings} />`,
+  };
+  const content = html`<div class="col setbody">
+    <div class="head"><div><h1>${meta[1]}</h1><div class="sub">${meta[3]}</div></div></div>
+    ${parts[section]}
   </div>`;
+  return ui === 'a'
+    ? html`<div class="col"><${SettingsNav} section=${section} />${content}</div>`
+    : html`<div class="svlayout setlayout"><${SettingsNav} section=${section} /><div class="svbody">${content}</div></div>`;
 }
 
 function ThemeSwatch({ t }) {
@@ -368,7 +396,7 @@ function App() {
   let page;
   if (m) page = html`<${ServerPage} key=${m[1]} id=${m[1]} tab=${m[2] || 'overview'} />`;
   else if (route.split('?')[0] === '#/new') page = html`<${CreatePage} />`;
-  else if (route === '#/settings') page = html`<${SettingsPage} theme=${theme} onTheme=${onTheme} onUi=${onUi} />`;
+  else if (route.split('?')[0].startsWith('#/settings')) page = html`<${SettingsPage} theme=${theme} onTheme=${onTheme} onUi=${onUi} section=${route.split('?')[0].split('/')[2] || ''} />`;
   else page = html`<${Dashboard} />`;
   const settingsOn = route.startsWith('#/settings');
   const logout = async () => { await api('/logout', { method: 'POST' }); applyBackground(null); setAuth(false); };

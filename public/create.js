@@ -33,7 +33,7 @@ export function ModpackSearch({ onPick, kind = 'modpack', loader = '', gameVersi
       <input placeholder=${kind === 'mod' ? 'Поиск модов на CurseForge' : 'Поиск сборок на CurseForge'} value=${q} onInput=${e => setQ(e.target.value)} />
       <${Btn} icon="search" type="submit" disabled=${busy}>Найти</${Btn}>
     </form>
-    ${!appState.settings.cfApiKeySet && html`<div class="banner warn" style="margin:0">Ключ CurseForge не задан. Добавьте его в <a href="#/settings">настройках</a>, и здесь появится поиск.</div>`}
+    ${!appState.settings.cfApiKeySet && html`<div class="banner warn" style="margin:0">Ключ CurseForge не задан. Добавьте его в <a href="#/settings/servers">настройках</a>, и здесь появится поиск.</div>`}
     ${appState.settings.cfApiKeySet && appState.settings.cfSearchOk === false && html`<div class="banner warn" style="margin:0">CurseForge закрыл поиск для вашего ключа, поэтому сборки через него недоступны. Выберите тип Forge, Fabric или NeoForge, а моды добавьте по ID проекта на вкладке «Моды».</div>`}
     ${res && res.length === 0 && html`<div class="empty">Ничего не найдено</div>`}
     ${res && html`<div class="mods">${res.map(m => html`<div class="mod" key=${m.id}>

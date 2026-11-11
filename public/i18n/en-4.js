@@ -152,7 +152,7 @@ export default {
   "Порты": "Ports",
   "Последний запуск:": "Last run:",
   "Последняя": "Latest",
-  "Права по группам (ADMIN, MODERATOR, VIP, FLY, HORIZON) включаются в блоке «Группы игроков» выше.": "Permissions by group (ADMIN, MODERATOR, VIP, FLY, HORIZON) are enabled in the 'Player groups' block above.",
+  "Права по группам (ADMIN, MODERATOR, VIP, FLY, HORIZON) включаются в блоке «Группы игроков» ниже.": "Permissions by group (ADMIN, MODERATOR, VIP, FLY, HORIZON) are enabled in the 'Player groups' block below.",
   "Приключение": "Adventure",
   "Принудительно остановить": "Force stop",
   "Принудительно убить процесс? Мир может не сохраниться.": "Force-kill the process? The world may not be saved.",

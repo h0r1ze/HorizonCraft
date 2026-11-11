@@ -23,7 +23,7 @@ export function NodesStrip() {
   if (!nodes || !nodes.length) return null;
   return html`<div>
     <div class="row" style="margin:6px 0 14px"><h2 class="grow">Ноды</h2>
-      <a href="#/settings" class="muted" style="font-size:13px">Управление</a></div>
+      <a href="#/settings/servers" class="muted" style="font-size:13px">Управление</a></div>
     <div class="tiles" style="grid-template-columns:repeat(auto-fill,minmax(min(270px,100%),1fr))">${nodes.map(n => {
       const h = n.hostInfo;
       return html`<div class="tile" key=${n.id}>

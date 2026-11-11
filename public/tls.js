@@ -41,7 +41,7 @@ export function TlsCard() {
   const cur = MODES.find(m => m.id === st.mode);
   const days = st.cert ? Math.floor((st.cert.notAfter - Date.now()) / 86400e3) : 0;
 
-  const go = secure => { setTimeout(() => { location.href = `${secure ? 'https' : 'http'}://${location.hostname}${location.port ? ':' + location.port : ''}/#/settings`; }, 900); };
+  const go = secure => { setTimeout(() => { location.href = `${secure ? 'https' : 'http'}://${location.hostname}${location.port ? ':' + location.port : ''}/#/settings/security`; }, 900); };
 
   const apply = async () => {
     if (f.mode === 'off' && !(await askConfirm('Отключить шифрование? Пароль и токены будут передаваться по сети открытым текстом.', { danger: true }))) return;
@@ -92,7 +92,7 @@ export function TlsCard() {
     setSwap({ port: n, url });
     for (let i = 0; i < 80; i++) {
       await sleep(1500);
-      try { await fetch(url + 'api/me', { mode: 'no-cors', cache: 'no-store' }); location.href = url + '#/settings'; return; } catch {}
+      try { await fetch(url + 'api/me', { mode: 'no-cors', cache: 'no-store' }); location.href = url + '#/settings/security'; return; } catch {}
       if (i >= 4) {                                        // если порт занят, панель вернулась на старый порт и сообщает причину
         const r = await api('/tls').catch(() => null);
         if (r?.portChange?.port === n && !r.portChange.ok) { setSwap(null); setSt(r); setBusy(false); toast(r.portChange.error || 'Не удалось сменить порт', 'err'); return; }

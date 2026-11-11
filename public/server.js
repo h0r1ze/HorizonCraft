@@ -449,7 +449,7 @@ function TagsCard({ s, d, gs, load, f, setF }) {
           const wasGroupPrefix = gs.groups.some(x => x.prefix === f.prefix);
           set({ group: id, prefix: g ? g.prefix : (wasGroupPrefix ? '' : f.prefix) });
         }} />`}
-        ${gs && !gs.on && html`<small class="muted">Права по группам (ADMIN, MODERATOR, VIP, FLY, HORIZON) включаются в блоке «Группы игроков» выше.</small>`}
+        ${gs && !gs.on && html`<small class="muted">Права по группам (ADMIN, MODERATOR, VIP, FLY, HORIZON) включаются в блоке «Группы игроков» ниже.</small>`}
         <div style="display:flex;flex-direction:column;gap:6px"><span style="font-weight:580;font-size:13px">Цвет самого ника</span>
           <${ColorRow} value=${f.color} none=${true} onPick=${c => set({ color: c })} />
           <small class="muted">Для ника доступны только 16 цветов игры. Жирный и прочие стили действуют на приписки.</small></div>
@@ -550,8 +550,6 @@ function PlayersTab({ s }) {
     </div>
     <${AttemptsCard} s=${s} d=${d} act=${act} load=${load} onTag=${toTag} />
     </div>
-    <${GroupsCard} s=${s} gs=${gs} reload=${load} />
-    <${TagsCard} s=${s} d=${d} gs=${gs} load=${load} f=${tf} setF=${setTf} />
     <div class="card col">
       <h2>Добавить по нику</h2>
       <div class="row wrap"><input style="max-width:280px" placeholder="Ник игрока" value=${name} onInput=${e => setName(e.target.value)} />
@@ -570,6 +568,8 @@ function PlayersTab({ s }) {
         <h2 style="margin:20px 0 14px">Заблокированные</h2>
         <div class="list">${d.banned.length ? d.banned.map(n => pill(n, x => act('pardon', x))) : html`<span class="muted">Нет</span>`}</div></div>
     </div>
+    <${TagsCard} s=${s} d=${d} gs=${gs} load=${load} f=${tf} setF=${setTf} />
+    <${GroupsCard} s=${s} gs=${gs} reload=${load} />
   </div>`;
 }
 

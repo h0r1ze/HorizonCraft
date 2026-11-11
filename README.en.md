@@ -214,7 +214,7 @@ curl -fsSL https://raw.githubusercontent.com/h0r1ze/HorizonCraft/main/install.sh
 
 At the end the script prints the node's **address** and **token**.
 
-**2. In the main panel:** **Settings → Nodes → Connect a node**, paste the address and token. The panel checks the connection and immediately lists the node's servers.
+**2. In the main panel:** **Settings → Servers and nodes → Nodes → Connect a node**, paste the address and token. The panel checks the connection and immediately lists the node's servers.
 
 **3. Create a server on the node:** the **New server** page gets a machine picker. Uploading an existing server archive also works for any node.
 
@@ -236,7 +236,7 @@ Requests for servers on a node are forwarded to its agent, so everything local s
 
 ## 🖼️ Interface layouts
 
-**Settings → Interface layout** switches the page layout. Colours come from the theme, so layout and theme can be combined freely. The choice is remembered in the browser.
+**Settings → Appearance → Interface layout** switches the page layout. Colours come from the theme, so layout and theme can be combined freely. The choice is remembered in the browser.
 
 <table>
   <tr>
@@ -259,7 +259,7 @@ The bottom of every page and the sign-in screen show the copyright «© 2026 h0r
 
 ## 🎨 Themes and panel background
 
-**Settings → Theme** offers 16 themes, eight dark and eight light. You can also switch the theme and the **interface layout** (Graphite, Light, Hosting) quickly from the menu on the left, no need to open Settings.
+**Settings → Appearance → Theme** offers 16 themes, eight dark and eight light. You can also switch the theme and the **interface layout** (Graphite, Light, Hosting) quickly from the menu on the left, no need to open Settings.
 
 <p align="center"><img src="docs/en/ui-menu.png" alt="Quick interface layout switch in the left menu" width="360"></p>
 
@@ -267,7 +267,7 @@ The bottom of every page and the sign-in screen show the copyright «© 2026 h0r
 - **Light:** Light, Pink, Soft beige, Ayanami Rei, Mint, Sky, Lavender, Amber.
 - **Your last choice is remembered.** The theme is stored on the server and in the browser: signing in from another computer or a phone shows the same look.
 
-**Settings → Panel background**: each of the 16 themes (dark and light alike) can have its own picture behind the interface. The background changes together with the theme.
+**Settings → Appearance → Panel background**: each of the 16 themes (dark and light alike) can have its own picture behind the interface. The background changes together with the theme.
 
 <table>
   <tr>
@@ -320,7 +320,7 @@ The **Map** tab (Paper and Purpur servers) enables [Dynmap](https://modrinth.com
 
 ## 🔀 VLESS: proxy and TUN
 
-If installer sites, CurseForge, Mojang or Discord are blocked where you live, the panel sends traffic through your VLESS server. The node and the mode are chosen **once** in **Settings → VLESS and proxy**. After that there is only a **Direct / Via VLESS** switch everywhere: on the server page (**Network & domain → Server traffic**), for the panel's CurseForge requests and in the Discord tab.
+If installer sites, CurseForge, Mojang or Discord are blocked where you live, the panel sends traffic through your VLESS server. The node and the mode are chosen **once** in **Settings → Network → VLESS and proxy**. After that there is only a **Direct / Via VLESS** switch everywhere: on the server page (**Network & domain → Server traffic**), for the panel's CurseForge requests and in the Discord tab.
 
 <p align="center"><img src="docs/en/vless.png" alt="VLESS and proxy in the settings" width="760"></p>
 
@@ -422,6 +422,7 @@ While a player is offline, you can act right from the column: **Add to the white
 
 - The list comes from the server logs for the last 30 days, so it is available even while the server is off. The whitelist and bans change through RCON, so the server has to be running for them.
 - A player disappears from the column after a successful join.
+- The **Players** tab follows the order of working with a nick: "Online" and "Could not join" at the top, then "Add by nick", the whitelist, operators and bans, then "Name tags", and the group setup at the end.
 - On a server without licences (`online-mode=false`), Minecraft whitelists and bans the licensed UUID of the nick, while the player joins with a different UUID. This is how the game works: on such servers it is easier to turn the whitelist off for a while.
 
 ## 🧹 World clearing
@@ -435,25 +436,38 @@ On the server overview, **Quick actions** has the **Clear the Overworld**, **Cle
 
 ## 🌐 Interface language
 
-The panel speaks Russian and English. Switch it with the button in the side menu or in **Settings → Language**. The browser language is used by default. The language of Discord messages is chosen separately on the **Discord** tab.
+The panel speaks Russian and English. Switch it with the button in the side menu or in **Settings → Appearance → Language**. The browser language is used by default. The language of Discord messages is chosen separately on the **Discord** tab.
 
 ## 📋 Server templates
 
-**"⋯" menu on a server page → Save as template.** A template holds the type and version, memory, `server.properties` values, Modrinth and CurseForge mod lists, the schedule and, optionally, the `mods`, `plugins` and `config` folders. The world, player tags and domain are not saved. On **New server** pick a template, give it a name, and the server appears on the chosen machine (including a node) already with the right plugins. Templates are managed under **Settings → Server templates**.
+**"⋯" menu on a server page → Save as template.** A template holds the type and version, memory, `server.properties` values, Modrinth and CurseForge mod lists, the schedule and, optionally, the `mods`, `plugins` and `config` folders. The world, player tags and domain are not saved. On **New server** pick a template, give it a name, and the server appears on the chosen machine (including a node) already with the right plugins. Templates are managed under **Settings → Servers and nodes → Server templates**.
 
 ## 🔧 Configuration
 
-Settings live in `.env` next to `docker-compose.yml`. Apply changes with `docker compose up -d`.
+The panel's **Settings** page has four sections with a section menu on the left (tabs at the top in the Graphite layout):
+
+| Section | What is there |
+|---|---|
+| **Appearance** | Language, interface layout, theme and panel background |
+| **Network** | The default public server address, [VLESS: node and mode](#-vless-proxy-and-tun) |
+| **Security** | [HTTPS and certificates](#-https-and-certificates), the panel port, certificate trust, password change |
+| **Servers and nodes** | The CurseForge key (and the panel's requests to it via VLESS), Minecraft images, server templates, nodes |
+
+<p align="center"><img src="docs/en/settings.png" alt="The Network section of the settings" width="900"></p>
+
+Each section has its own address (`#/settings/network` and so on), so links like "change in Settings" open the right place at once.
+
+Installation settings live in `.env` next to `docker-compose.yml`. Apply changes with `docker compose up -d`.
 
 | Setting | Description |
 |---|---|
-| `ADMIN_PASSWORD` | Admin password. **Used only on first start.** Change it later in the panel (Settings → Password) |
+| `ADMIN_PASSWORD` | Admin password. **Used only on first start.** Change it later in the panel (Settings → Security → Change password) |
 | `DATA_DIR` | Absolute path to data. Don't change it after creating servers without moving the folder |
 | `PANEL_PORT` | Host port of the web panel |
 | `TZ` | Time zone of the panel and servers |
 | `AGENT_TOKEN` | Optional. If set (24+ characters), this panel can be connected as a node. Created by `./install.sh --agent` |
 
-To search and install CurseForge modpacks, get a free API key at [console.curseforge.com](https://console.curseforge.com/) and paste it under **Settings → CurseForge**.
+To search and install CurseForge modpacks, get a free API key at [console.curseforge.com](https://console.curseforge.com/) and paste it under **Settings → Servers and nodes → CurseForge**.
 
 ## 🔄 Maintenance
 
@@ -537,7 +551,7 @@ It is reserved for `mc-router` as soon as any server has a domain set. Give the 
 <details>
 <summary><b>Modpacks or mods do not download</b></summary>
 
-If CurseForge, Modrinth or Mojang are unavailable from your provider, pick a node in **Settings → VLESS and proxy** (a 3x-ui subscription or a `vless://` link) and turn on **Via VLESS** on the server page. More: [VLESS: proxy and TUN](#-vless-proxy-and-tun).
+If CurseForge, Modrinth or Mojang are unavailable from your provider, pick a node in **Settings → Network → VLESS and proxy** (a 3x-ui subscription or a `vless://` link) and turn on **Via VLESS** on the server page. More: [VLESS: proxy and TUN](#-vless-proxy-and-tun).
 </details>
 
 ## 🤝 Contributing
