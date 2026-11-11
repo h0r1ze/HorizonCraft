@@ -25,9 +25,10 @@ function probe(host, port) {
   });
 }
 
-export async function run({ docker, self, newPort, dataDir, log = console.log, readyTries = 60 }) {
+export async function run({ docker, self, newPort, dataDir, log = console.log, readyTries = 60, resultFile = '' }) {
   const result = { ok: false, port: newPort, at: Date.now(), error: '' };
-  const write = () => { try { fs.mkdirSync(path.join(dataDir, 'tls'), { recursive: true }); fs.writeFileSync(path.join(dataDir, 'tls', 'portchange.json'), JSON.stringify(result)); } catch (e) { log('не удалось записать итог: ' + e.message); } };
+  const file = resultFile || path.join(dataDir, 'tls', 'portchange.json');
+  const write = () => { try { fs.mkdirSync(path.dirname(file), { recursive: true }); fs.writeFileSync(file, JSON.stringify(result)); } catch (e) { log('не удалось записать итог: ' + e.message); } };
   const old = docker.getContainer(self);
   let info;
   try { info = await old.inspect(); } catch (e) { result.error = 'Не удалось найти контейнер панели: ' + e.message; write(); return result; }

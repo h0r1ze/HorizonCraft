@@ -15,6 +15,7 @@ import * as imp from './importer.js';
 import * as P from './proxy.js';
 import * as tun from './tun.js';
 import * as attemptsMod from './attempts.js';
+import * as selfUpdate from './selfupdate.js';
 import * as M from '../public/mc.js';
 import * as chat from './chat.js';
 import * as nodes from './nodes.js';
@@ -1109,6 +1110,7 @@ export function createRouter() {
   mapMod.register(r, ctx);
   templatesMod.register(r, ctx);
   discordMod.register(r, ctx);
+  selfUpdate.register(r, ctx);
   groupsMod.register(r, ctx);
   appearanceMod.register(r, ctx);
   tlsRoutes.register(r, ctx);

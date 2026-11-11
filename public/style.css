@@ -718,3 +718,26 @@ a.btn { text-decoration: none; }
 /* Настройки: разделы с меню слева, ширина содержимого как раньше */
 .setlayout .setbody { max-width: 820px; }
 .setbody > .head { margin-bottom: 4px; }
+
+/* Версия и обновление панели */
+.verbadge { display: inline-flex; align-items: center; gap: 6px; align-self: flex-start; margin: -10px 0 10px 12px; padding: 3px 10px; border-radius: 99px; border: 1px solid var(--line);
+  background: var(--panel2); color: var(--muted); font: inherit; font-size: 12px; font-weight: 600; cursor: pointer; transition: border-color .15s, color .15s; }
+.verbadge:hover { color: var(--text); border-color: var(--faint); }
+.verbadge.new { color: var(--accent-text); border-color: var(--accent); background: var(--accent-soft); animation: upglow 2.2s ease-in-out infinite; }
+.verbadge.busy .spin { width: 11px; height: 11px; }
+@keyframes upglow { 0%, 100% { box-shadow: 0 0 0 0 color-mix(in srgb, var(--accent) 45%, transparent); } 50% { box-shadow: 0 0 0 6px color-mix(in srgb, var(--accent) 0%, transparent); } }
+:root[data-ui="a"] .verbadge { margin: -12px 0 12px 0; padding: 3px 7px; align-self: center; }
+:root[data-ui="a"] .verbadge .nl { display: none; }
+:root[data-ui="a"] .verbadge:not(.new):not(.busy)::before { content: "v"; }
+:root[data-ui="a"] .verbadge:not(.new):not(.busy) { font-size: 11px; }
+:root[data-ui="c"] .verbadge { margin: 0 14px 0 -14px; align-self: center; background: rgba(255, 255, 255, .06); border-color: rgba(255, 255, 255, .12); color: #cbd5e1; }
+:root[data-ui="c"] .verbadge.new { background: var(--accent-soft); color: var(--accent-text); border-color: var(--accent); }
+.upbanner { display: flex; align-items: center; gap: 12px; margin: 0 0 18px; flex-wrap: wrap; }
+.upcard.hot { border-color: var(--accent); box-shadow: 0 0 0 1px var(--accent) inset; }
+.upgrid { display: grid; grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); gap: 12px; }
+.upgrid > div { display: flex; flex-direction: column; gap: 3px; padding: 12px 14px; border-radius: 12px; background: var(--panel2); border: 1px solid var(--line); }
+.upver { font-size: 22px; font-weight: 750; letter-spacing: -.01em; }
+.upver.new { color: var(--accent-text); }
+.upmsg { font-size: 13.5px; overflow-wrap: anywhere; }
+.bottomnav .nav { position: relative; }
+.navdot { position: absolute; top: 6px; left: calc(50% + 6px); width: 9px; height: 9px; border-radius: 50%; background: var(--accent); box-shadow: 0 0 0 2px var(--panel); animation: upglow 2.2s ease-in-out infinite; }

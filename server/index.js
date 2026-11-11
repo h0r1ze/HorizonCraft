@@ -18,6 +18,7 @@ import { cleanupOld } from './importer.js';
 import { migrate as migrateProxy } from './proxy.js';
 import * as tun from './tun.js';
 import { detectPort } from './tls/portchange.js';
+import { startChecks as startUpdateChecks } from './selfupdate.js';
 import { probeCurseForge, searchState } from './net.js';
 
 const here = path.dirname(fileURLToPath(import.meta.url));
@@ -114,6 +115,7 @@ cleanupOld();
 nodes.startPolling();
 startChecks();
 startDiscord();
+startUpdateChecks();
 
 // Для уже сохранённого ключа выясняем, доступен ли поиск CurseForge.
 (async () => {

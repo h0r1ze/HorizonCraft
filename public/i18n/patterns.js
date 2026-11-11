@@ -128,4 +128,13 @@ export default [
   [/^отклонил подключение бота \(код (\d+)\)$/, (t, a) => `rejected the bot connection (code ${a})`],
   [/^просит подождать (\d+) с$/, (t, a) => `asks to wait ${a} s`],
   [/^Свой прокси (\S+)$/, (t, a) => `Own proxy ${a}`],
+  [/^Обновить панель до v([\d.]+)\? (.+)$/s, (t, a, b) => `Update the panel to v${a}? ${t(b)}`],
+  [/^Доступна версия v?([\d.]+)$/, (t, a) => `Version ${a} is available`],
+  [/^Панель обновлена до v([\d.]+)$/, (t, a) => `The panel was updated to v${a}`],
+  [/^Панель обновлена (.+?)( с v[\d.]+)? до v([\d.]+)\.$/, (t, a, b, c) => `The panel was updated ${t(a)}${b ? ' from v' + b.slice(4) : ''} to v${c}.`],
+  [/^Не удалось скачать обновление: (.+)$/, (t, a) => `Could not download the update: ${a}`],
+  [/^Сборка новой версии не удалась: (.+)$/s, (t, a) => `Building the new version failed: ${a}`],
+  [/^В архиве обновления нет (.+)$/, (t, a) => `The update archive has no ${a}`],
+  [/^Не удалось запустить обновление: (.+)$/, (t, a) => `Could not start the update: ${a}`],
+  [/^Новая версия не запустилась, панель возвращена к прежней\. (.+)$/s, (t, a) => `The new version did not start, the panel was returned to the previous one. ${t(a)}`],
 ];

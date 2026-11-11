@@ -9,6 +9,7 @@ import { ServerName } from './mcfmt.js';
 import { ServerPage } from './server.js';
 import { BackgroundCard, loadAppearance, saveAppearance, applyBackground, applyForTheme } from './appearance.js';
 import { TlsCard } from './tls.js';
+import { UpdateBadge, UpdateBanner, PanelUpdateCard, UpdateDot } from './update.js';
 
 setTheme(getTheme());
 setUi(getUi());
@@ -160,6 +161,7 @@ function Dashboard() {
     <div class="head"><div class="grow"><h1>Обзор</h1>
       <div class="sub">${list ? `${list.length} ${plural(list.length, 'сервер', 'сервера', 'серверов')} · работает: ${running} · игроков онлайн: ${players}` : 'Загрузка…'}</div></div>
       <${Btn} kind="primary" icon="plus" onClick=${() => (location.hash = '#/new')}>Создать сервер</${Btn}></div>
+    <${UpdateBanner} />
     <${HostTiles} />
     <${NodesStrip} />
     <div class="row" style="margin:6px 0 14px"><h2>Серверы</h2></div>
@@ -189,7 +191,7 @@ function UiPicker({ onUi }) {
 
 /* Разделы настроек: у каждого свой адрес #/settings/<раздел>, поэтому ссылки ведут сразу в нужное место. */
 export const SETTINGS_SECTIONS = [
-  ['security', 'Безопасность', 'shield', 'HTTPS, порт панели и пароль'],
+  ['security', 'Безопасность', 'shield', 'Обновление панели, HTTPS, порт и пароль'],
   ['servers', 'Серверы и ноды', 'server', 'CurseForge, образы, шаблоны и ноды'],
   ['network', 'Сеть', 'globe', 'Адрес серверов и VLESS'],
   ['look', 'Оформление', 'palette', 'Язык, вид интерфейса, тема и фон'],
@@ -269,6 +271,7 @@ function SettingsPage({ onTheme, theme, onUi, section: sec0 }) {
     </div>
     <${ProxySettings} />`,
     security: html`
+    <${PanelUpdateCard} />
     <${TlsCard} />
     <div class="card col">
       <h2>Смена пароля</h2>
@@ -404,6 +407,7 @@ function App() {
   return html`<div class="shell">
     <aside class="side">
       <div class="brand"><div class="logo"><${Icon} n="cube" size=${19} /></div><span class="nl">HorizonCraft</span></div>
+      <${UpdateBadge} />
       <div class="navlabel">Управление</div>
       <button class=${'nav ' + (!settingsOn && route.split('?')[0] !== '#/new' ? 'on' : '')} title="Обзор" onClick=${() => (location.hash = '#/')}><${Icon} n="home" /><span class="nl">Обзор</span></button>
       <button class=${'nav ' + (route.split('?')[0] === '#/new' ? 'on' : '')} title="Новый сервер" onClick=${() => (location.hash = '#/new')}><${Icon} n="plus" /><span class="nl">Новый сервер</span></button>
@@ -421,7 +425,7 @@ function App() {
     <nav class="bottomnav">
       <button class=${'nav ' + (!settingsOn ? 'on' : '')} onClick=${() => (location.hash = '#/')}><${Icon} n="home" size=${20} />Обзор</button>
       <button class="nav" onClick=${() => (location.hash = '#/new')}><${Icon} n="plus" size=${20} />Создать</button>
-      <button class=${'nav ' + (settingsOn ? 'on' : '')} onClick=${() => (location.hash = '#/settings')}><${Icon} n="gear" size=${20} />Настройки</button>
+      <button class=${'nav ' + (settingsOn ? 'on' : '')} onClick=${() => (location.hash = '#/settings')}><${Icon} n="gear" size=${20} /><${UpdateDot} />Настройки</button>
       <${LangMenu} mobile=${true} />
       <${UiMenu} onUi=${onUi} mobile=${true} />
       <${ThemeMenu} theme=${theme} onTheme=${onTheme} mobile=${true} />
