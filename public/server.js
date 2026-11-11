@@ -1,4 +1,4 @@
-import { html, useState, useEffect, useRef, t, askConfirm, askText, Icon, Btn, Field, Toggle, Modal, Spark, Meter, Avatar, toast, StateBadge, TYPE_NAMES, TYPE_COLOR, fmtBytes, addrOf, uptime, ago, copyText, plural, appState, isRemote, useUi, locale } from './ui.js';
+import { html, rawHtml, useState, useEffect, useRef, t, askConfirm, askText, Icon, Btn, Field, Toggle, Modal, Spark, Meter, Avatar, toast, StateBadge, TYPE_NAMES, TYPE_COLOR, fmtBytes, addrOf, uptime, ago, copyText, plural, appState, isRemote, useUi, locale } from './ui.js';
 import { api, getVersions } from './api.js';
 import { ModpackSearch } from './create.js';
 import { ServerProxy } from './proxy.js';
@@ -132,7 +132,7 @@ export function ServerPage({ id, tab }) {
           <span class="chip tc">${TYPE_NAMES[s.type]}${s.type !== 'AUTO_CURSEFORGE' ? ' ' + s.version : ''}</span>
           ${s.type === 'AUTO_CURSEFORGE' && s.cfSlug && html`<span class="chip">${s.cfSlug}</span>`}
           ${isRemote(s) && html`<span class="chip" title="Сервер работает на ноде"><${Icon} n="server" size=${12} />${s.node.name}</span>`}
-          ${s.proxy?.on && html`<span class="chip" title="Прокси включён" style="color:var(--info)"><${Icon} n="globe" size=${12} />прокси: ${s.proxy.scope === 'all' ? 'весь трафик' : 'установка'}</span>`}
+          ${s.proxy?.on && html`<span class="chip" title="Трафик идёт через VLESS" style="color:var(--info)"><${Icon} n="shield" size=${12} />VLESS</span>`}
           <span class="addr" title="Скопировать" onClick=${() => copyText(addrOf(s))}>${addrOf(s)}<${Icon} n="copy" size=${13} /></span>
           ${s.state === 'running' && html`<span>работает ${uptime(s.startedAt)}</span>`}
           ${s.players != null && html`<span>игроков: <b style="color:var(--text)">${s.players}${s.maxPlayers ? ' / ' + s.maxPlayers : ''}</b></span>`}</div></div>
@@ -414,7 +414,7 @@ function TagScene({ nick, tag }) {
 function TagsCard({ s, d, gs, load, f, setF }) {
   const [busy, setBusy] = useState(false);
   const tags = d.tags || {};
-  const names = [...new Set([...d.online, ...Object.keys(tags)])];
+  const names = [...new Set([...d.online, ...(d.attempts || []).map(a => a.name), ...Object.keys(tags)])];
   const save = async () => {
     setBusy(true);
     try {
@@ -440,7 +440,7 @@ function TagsCard({ s, d, gs, load, f, setF }) {
       : html`<div class="muted">Пока нет ни одной приписки</div>`}
     <div class="tagform">
       <div class="col" style="gap:14px">
-        <${Field} label="Ник игрока" hint="Точно, с учётом регистра. Можно выбрать из списка тех, кто сейчас онлайн.">
+        <${Field} label="Ник игрока" hint="Точно, с учётом регистра. В списке подсказок те, кто сейчас онлайн, и те, кто пытался зайти.">
           <input list="tag-nicks" value=${f.nick} placeholder="Steve" onInput=${e => set({ nick: e.target.value })} />
           <datalist id="tag-nicks">${names.map(n => html`<option value=${n} />`)}</datalist></${Field}>
         ${gs?.on && html`<${GroupPicker} gs=${gs} value=${f.group} onPick=${id => {
@@ -468,6 +468,49 @@ function TagsCard({ s, d, gs, load, f, setF }) {
   </div>`;
 }
 
+const FAIL_KIND = {
+  whitelist: ['warn', 'Нет в белом списке'], banned: ['err', 'Забанен'], full: ['', 'Сервер был полон'], auth: ['warn', 'Не прошёл проверку лицензии'],
+  version: ['', 'Не та версия или моды'], left: ['', 'Прервал вход'], other: ['', 'Отключён сервером'],
+};
+/** Игроки, которые пытались зайти, но не смогли: с ними можно работать, пока они не в сети. */
+function AttemptsCard({ s, d, act, load, onTag }) {
+  const list = d.attempts || [];
+  const has = (arr, n) => arr.some(x => x.toLowerCase() === n.toLowerCase());
+  const hide = async name => {
+    try { await api(`/servers/${s.id}/attempts/hide`, { method: 'POST', body: { name } }); load(); }
+    catch (x) { toast(x.message, 'err'); }
+  };
+  return html`<div class="card" id="attempts-card">
+    <h2 class="row" style="gap:10px"><span>Не смогли войти</span><span class="sub" style="margin:0">${list.length || ''}</span><span class="grow"></span>
+      ${list.length > 0 && html`<${Btn} kind="sm ghost" icon="x" onClick=${async () => (await askConfirm('Очистить список неудачных попыток входа? Новые попытки появятся снова.')) && hide('')}>Очистить</${Btn}>`}</h2>
+    ${list.length === 0 ? html`<div class="muted">Неудачных попыток входа нет. Здесь появятся игроки, которых не пустил белый список, бан или другая причина.</div>`
+      : html`<div class="col" style="gap:10px">${list.map(a => {
+        const k = FAIL_KIND[a.kind] || FAIL_KIND.other, wl = has(d.whitelist, a.name), bn = has(d.banned, a.name);
+        return html`<div class="pcard acard" key=${a.name}>
+          <img src=${'https://mc-heads.net/avatar/' + a.name + '/36'} width="36" height="36" onError=${e => (e.target.style.display = 'none')} />
+          <div class="grow" style="min-width:0">
+            <b>${a.name} ${tagOf(d.tags, a.name) && html`<${TagPreview} nick=${a.name} tag=${tagOf(d.tags, a.name)} />`}</b>
+            <div class="row wrap" style="gap:6px;margin-top:4px">
+              <span class=${'chip ' + k[0]} title=${a.text}>${k[1]}</span>
+              ${wl && html`<span class="chip ok">уже в белом списке</span>`}
+              ${bn && a.kind !== 'banned' && html`<span class="chip err">забанен</span>`}
+              <span class="muted" style="font-size:12.5px">${ago(a.last)}${a.count > 1 ? html` · ${a.count} ${plural(a.count, 'попытка', 'попытки', 'попыток')}` : ''}</span>
+              ${a.ip && html`<span class="chip mono" title="Адрес, с которого шло подключение">${a.ip}</span>`}</div>
+            ${a.kind === 'other' && html`<div class="muted trunc" style="font-size:12.5px;margin-top:3px" title=${a.text}>${rawHtml`${a.text}`}</div>`}
+          </div>
+          <div class="aacts">
+          ${!wl && html`<${Btn} kind="sm" icon="check" disabled=${!d.running} title=${d.running ? 'Добавить в белый список' : 'Запустите сервер, чтобы изменить белый список'} onClick=${() => act('wl-add', a.name)}>В белый список</${Btn}>`}
+          <${Btn} kind="sm" onClick=${() => onTag(a.name)}>Приписка</${Btn}>
+          ${bn ? html`<${Btn} kind="sm" disabled=${!d.running} onClick=${() => act('pardon', a.name)}>Разбанить</${Btn}>`
+            : html`<${Btn} kind="sm danger" disabled=${!d.running} onClick=${async () => { const r = await askText('Бан игрока ' + a.name, { label: 'Причина (необязательно)', ok: 'Забанить', danger: true }); if (r) act('ban', a.name, { reason: r.value }); }}>Бан</${Btn}>`}
+</div>
+          <span class="ahide"><${Btn} kind="sm ghost icon" icon="x" title="Скрыть из списка" onClick=${() => hide(a.name)} /></span>
+        </div>`;
+      })}</div>`}
+    <small class="muted" style="display:block;margin-top:12px">Список берётся из журналов сервера за последние 30 дней. Игрок пропадает из него, когда успешно зайдёт. Приписку можно задать заранее: она применится при первом входе.</small>
+  </div>`;
+}
+
 function PlayersTab({ s }) {
   const [d, setD] = useState(null);
   const [name, setName] = useState('');
@@ -483,9 +526,11 @@ function PlayersTab({ s }) {
     catch (x) { toast(x.message, 'err'); }
   };
   if (!d) return html`<div class="skeleton" style="height:240px"></div>`;
+  const toTag = n => { setTf(tagForm(n, tagOf(d.tags, n), d)); document.getElementById('tags-card')?.scrollIntoView({ behavior: 'smooth', block: 'center' }); };
   const pill = (n, onRemove) => html`<span class="pill" key=${n}>${n}<button title="Убрать" onClick=${() => onRemove(n)}><${Icon} n="x" size=${14} /></button></span>`;
   return html`<div class="col">
     ${!d.running && html`<div class="banner info" style="margin:0">Сервер остановлен. Списки читаются из файлов, управлять онлайн-игроками можно только при запущенном сервере.</div>`}
+    <div class="pcols">
     <div class="card">
       <h2>Онлайн ${d.running ? html`<span class="sub">${d.online.length}${d.max ? ' из ' + d.max : ''}</span>` : ''}</h2>
       ${d.online.length === 0 ? html`<div class="muted">Никого нет на сервере</div>`
@@ -496,12 +541,14 @@ function PlayersTab({ s }) {
             <select style="width:auto;padding:5px 8px" value="" onChange=${e => e.target.value && (act('gamemode', n, { mode: e.target.value }), (e.target.value = ''))}>
               <option value="">Режим…</option><option value="survival">Выживание</option><option value="creative">Творчество</option>
               <option value="adventure">Приключение</option><option value="spectator">Наблюдатель</option></select>
-            <${Btn} kind="sm" onClick=${() => { const t = tagOf(d.tags, n); setTf(tagForm(n, t, d)); document.getElementById('tags-card')?.scrollIntoView({ behavior: 'smooth', block: 'center' }); }}>Приписка</${Btn}>
+            <${Btn} kind="sm" onClick=${() => toTag(n)}>Приписка</${Btn}>
             <${Btn} kind="sm" icon="msg" onClick=${async () => { const r = await askText('Личное сообщение игроку ' + n, { label: 'Сообщение', required: true, ok: 'Отправить', placeholder: 'Что передать игроку?' }); if (r) act('tell', n, { reason: r.value }); }}>Написать</${Btn}>
             <${Btn} kind="sm" onClick=${() => act(d.ops.includes(n) ? 'deop' : 'op', n)}>${d.ops.includes(n) ? 'Снять OP' : 'Дать OP'}</${Btn}>
             <${Btn} kind="sm" onClick=${async () => { const r = await askText('Кик игрока ' + n, { label: 'Причина (необязательно)', ok: 'Выгнать', danger: true }); if (r) act('kick', n, { reason: r.value }); }}>Кик</${Btn}>
             <${Btn} kind="sm danger" onClick=${async () => { const r = await askText('Бан игрока ' + n, { label: 'Причина (необязательно)', ok: 'Забанить', danger: true }); if (r) act('ban', n, { reason: r.value }); }}>Бан</${Btn}>
           </div>`)}</div>`}
+    </div>
+    <${AttemptsCard} s=${s} d=${d} act=${act} load=${load} onTag=${toTag} />
     </div>
     <${GroupsCard} s=${s} gs=${gs} reload=${load} />
     <${TagsCard} s=${s} d=${d} gs=${gs} load=${load} f=${tf} setF=${setTf} />
@@ -898,7 +945,7 @@ function NetworkTab({ s, reload }) {
         <small class="muted">Если внешний IP меняется, используйте DDNS. Подключения по домену принимает маршрутизатор mc-router, он сам направляет игрока на нужный сервер.</small></div>`
       : html`<small class="muted">Без домена игроки заходят по адресу <span class="mono">${host}:${d.port}</span>, для этого нужно пробросить порт ${d.port} на роутере.</small>`}
     </div>
-    <${ServerProxy} value=${d.proxy} onChange=${v => set({ proxy: v })} />
+    <${ServerProxy} s=${s} value=${d.proxy} onChange=${v => set({ proxy: v })} />
     <div class="row"><${Btn} kind="primary" icon="save" onClick=${save} disabled=${!dirty}>Сохранить</${Btn}></div>
   </div>`;
 }

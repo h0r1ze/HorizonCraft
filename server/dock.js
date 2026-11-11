@@ -18,7 +18,8 @@ export const docker = new Docker({ socketPath: '/var/run/docker.sock' });
 export const NET = 'mcpanel';
 export const DATA_DIR = process.env.DATA_DIR || '/data';
 export const serverDir = id => path.join(DATA_DIR, 'servers', id);
-export const cname = id => 'mc-' + id;
+// SERVER_PREFIX нужен только для проверок на живом хосте: тестовые серверы получают свои имена и не путаются с настоящими
+export const cname = id => (process.env.SERVER_PREFIX || 'mc-') + id;
 export const IMG = 'itzg/minecraft-server';
 const ROUTER = 'mcpanel-router';
 const sha = s => crypto.createHash('sha1').update(s).digest('hex');
@@ -350,7 +351,7 @@ const XRAY_DIR = path.join(DATA_DIR, 'xray');
 export async function syncXray() {
   let existing = null;
   try { existing = await docker.getContainer(XRAY).inspect(); } catch {}
-  const config = P.buildXrayConfig();
+  const config = P.buildXrayConfig(gateway);
   if (!config) {
     if (existing) await docker.getContainer(XRAY).remove({ force: true });
     return;

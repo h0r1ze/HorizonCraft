@@ -1,5 +1,6 @@
 FROM node:22-alpine
-RUN apk add --no-cache tzdata unzip
+# nftables и iptables нужны режиму TUN: ими панель настраивает перехват трафика сервера
+RUN apk add --no-cache tzdata unzip nftables iptables
 WORKDIR /app
 COPY package.json ./
 RUN npm install --omit=dev

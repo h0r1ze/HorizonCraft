@@ -667,3 +667,50 @@ input, select, textarea { min-width: 0; }
   :root[data-ui] .main { min-height: 100vh; }
   .appfoot { margin-top: 30px; border-radius: 16px; }
 }
+
+/* VLESS: выбор узла и режима */
+.vnode.on { border-color: var(--accent); background: color-mix(in srgb, var(--accent-soft) 60%, var(--panel2)); }
+.vradio { width: 22px; height: 22px; border-radius: 50%; border: 2px solid var(--line); background: var(--panel); cursor: pointer; padding: 0; position: relative; flex: none; transition: border-color .15s; }
+.vradio:hover { border-color: var(--accent); }
+.vradio.on { border-color: var(--accent); cursor: default; }
+.vradio.on::after { content: ""; position: absolute; inset: 4px; border-radius: 50%; background: var(--accent); }
+.vmodes { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+.vmode { text-align: left; font: inherit; color: var(--text); background: var(--panel2); border: 1px solid var(--line); border-radius: 13px; padding: 14px 16px; cursor: pointer; display: flex; flex-direction: column; gap: 6px; transition: border-color .15s, background .15s; }
+.vmode:hover { border-color: var(--accent); }
+.vmode.on { border-color: var(--accent); background: color-mix(in srgb, var(--accent-soft) 60%, var(--panel2)); box-shadow: 0 0 0 1px var(--accent) inset; }
+.vmode b { font-size: 15px; }
+.vmode span { color: var(--muted); font-size: 13px; line-height: 1.45; }
+.seg.via button { display: inline-flex; align-items: center; gap: 6px; }
+.seg.via button:disabled { opacity: .45; cursor: not-allowed; }
+.chip.err { color: var(--danger-ink); background: var(--danger-soft); }
+/* Игроки: онлайн и «не смогли войти» двумя колонками */
+.pcols { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); gap: 16px; align-items: start; }
+.acard { position: relative; }
+.acard > .grow { flex: 1 1 220px; padding-right: 30px; }
+.acard .ahide { position: absolute; top: 6px; right: 6px; }
+.aacts { display: flex; flex-wrap: wrap; gap: 6px; align-items: center; flex: 1 1 100%; padding-left: 48px; margin-top: 2px; }
+@media (max-width: 760px) { .aacts { padding-left: 0; } }
+@media (max-width: 1180px) { .pcols { grid-template-columns: minmax(0, 1fr); } }
+@media (max-width: 760px) { .vmodes { grid-template-columns: 1fr; } .vnode { grid-template-columns: auto 1fr !important; } .vnode > .row { grid-column: 1 / -1; } }
+
+/* Discord: макеты канала и профиля бота, редакторы вида */
+.dc-chat { display: flex; flex-direction: column; gap: 2px; border-radius: 12px; background: #313338; overflow: hidden; }
+.dc-chat .dc-msg { border-radius: 0; background: none; padding: 14px 16px; }
+img.dc-ava { object-fit: cover; display: block; padding: 0; }
+.dc-ava.big { width: 72px; height: 72px; font-size: 30px; }
+.dc-desc { color: #dbdee1; font-size: 14px; line-height: 1.4; margin-bottom: 8px; white-space: pre-wrap; overflow-wrap: anywhere; }
+.dc-desc code, .dc-pabout code { background: #1e1f22; border-radius: 4px; padding: 1px 5px; font-size: 13px; }
+.dc-edit { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); gap: 22px; align-items: start; }
+.dc-checks { display: grid; grid-template-columns: repeat(auto-fill, minmax(190px, 1fr)); gap: 8px 16px; }
+.dc-prof { border-radius: 12px; background: #232428; color: #dbdee1; overflow: hidden; max-width: 340px; font-family: "gg sans", "Segoe UI", system-ui, sans-serif; box-shadow: 0 8px 24px rgba(0, 0, 0, .28); }
+.dc-banner { height: 62px; background: linear-gradient(135deg, #5865f2, #7b5cf0 55%, #eb459e); }
+.dc-pava { position: relative; width: 84px; height: 84px; margin: -42px 0 0 16px; border-radius: 50%; background: #232428; display: grid; place-items: center; }
+.dc-dot { position: absolute; right: 2px; bottom: 2px; width: 22px; height: 22px; border-radius: 50%; border: 5px solid #232428; background: #80848e; }
+.dc-dot.online { background: #23a55a; } .dc-dot.idle { background: #f0b232; } .dc-dot.dnd { background: #f23f43; }
+.dc-pbody { margin: 10px 12px 12px; padding: 12px; border-radius: 8px; background: #111214; display: flex; flex-direction: column; gap: 6px; }
+.dc-pname { color: #f2f3f5; font-weight: 700; font-size: 18px; display: flex; align-items: center; gap: 8px; flex-wrap: wrap; overflow-wrap: anywhere; }
+.dc-pact { font-size: 13.5px; color: #b5bac1; overflow-wrap: anywhere; } .dc-pact b { color: #f2f3f5; font-weight: 600; }
+.dc-psec { margin-top: 6px; padding-top: 10px; border-top: 1px solid #2e2f34; font-size: 11px; font-weight: 700; letter-spacing: .04em; color: #b5bac1; }
+.dc-pabout { font-size: 13.5px; white-space: pre-wrap; overflow-wrap: anywhere; }
+a.btn { text-decoration: none; }
+@media (max-width: 1000px) { .dc-edit { grid-template-columns: minmax(0, 1fr); } }

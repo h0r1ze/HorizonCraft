@@ -84,7 +84,7 @@ Example: `PANEL_PORT=9090 ADMIN_PASSWORD=MySecret123 ./install.sh`
 |---|---|
 | 🚀 **Server creation** | Paper, Vanilla, Purpur, Fabric, Forge, NeoForge and one-click CurseForge modpacks. The Java version is picked automatically |
 | 🖥️ **Console** | Live server log and command input right in the browser |
-| 👥 **Players & chat** | Online list, kick, ban, private messages, whitelist, chat, coloured name prefixes/suffixes |
+| 👥 **Players & chat** | Online list, kick, ban, private messages, whitelist, chat, coloured name prefixes/suffixes. A separate "Could not join" column: who was stopped by the whitelist, a ban or the licence check, with actions right from it |
 | 🧩 **Mods** | Search and install from CurseForge and Modrinth |
 | 💾 **Backups** | Manual and scheduled backups, retention limit, one-click restore |
 | ⏰ **Schedules** | Restart (players are warned 30 seconds ahead), backup, or any command on a schedule |
@@ -92,7 +92,7 @@ Example: `PANEL_PORT=9090 ADMIN_PASSWORD=MySecret123 ./install.sh`
 | 🚚 **Move between machines** | Move a whole server (world, mods, settings) to another machine or node in one click, even a running one: the panel stops it and starts it at the new place |
 | 🔄 **Updates** | New Minecraft versions and fresh versions of plugins and mods: files are recognised by hash on Modrinth and updated on selection, with a backup beforehand |
 | 🗺️ **World map** | A live Dynmap map in one click: plugin, port and link are set up for you |
-| 💬 **Discord status board** | A message with the server status, players, version and address keeps itself up to date in your channel through a webhook, no bot needed. Optional notifications for start, stop and players joining |
+| 💬 **Discord** | A status board with the server status, players, version and address keeps itself up to date in your channel. Through a webhook or your own bot that the panel runs: it is online with a 'Playing …' status and writes only to the chosen channels. The message look, the name and the avatar are set from the panel with a preview. Optional notifications for starts, stops and player joins |
 | 👥 **Player groups** | ADMIN, MODERATOR, VIP, FLY and HORIZON: ready-made permission sets and a coloured name tag. Groups can be renamed, permissions are set with checkboxes, and you can create your own groups in a couple of clicks. The permission plugins are installed with one button and a group is picked in the player form |
 | 🧹 **World clearing** | The 'Clear the Overworld', 'Clear the Nether' and 'Clear the End' buttons: with a backup before deleting, and the server stops and starts again by itself |
 | 🌐 **Two languages** | Russian and English interface, plus a separate language for Discord messages |
@@ -102,7 +102,7 @@ Example: `PANEL_PORT=9090 ADMIN_PASSWORD=MySecret123 ./install.sh`
 | 📦 **Import & clone** | Upload an existing server as an archive, or clone one together with its world |
 | 📊 **Monitoring** | CPU, memory and disk usage for the host and each server |
 | 🎨 **Looks** | Three interface layouts to choose from (Graphite, Light, Hosting) and 16 colour themes (eight dark and eight light, listed in separate groups), your own picture as the panel background, server covers and icons, coloured MOTD editor |
-| 🔒 **Download proxy** | Fetch modpacks and mods through VLESS (3x-ui subscription or `vless://` link) if sites are blocked where you live |
+| 🛡️ **VLESS** | A node from a 3x-ui subscription (or a `vless://` link) is chosen once, then there is only a "direct / via VLESS" switch. Proxy mode for downloads or TUN for all server traffic |
 
 ## 📸 Screenshots
 
@@ -116,7 +116,7 @@ Example: `PANEL_PORT=9090 ADMIN_PASSWORD=MySecret123 ./install.sh`
     <td width="50%"><img src="docs/en/mods.png" alt="Mods"><br><sub><b>Mods.</b> CurseForge search and Modrinth projects</sub></td>
   </tr>
   <tr>
-    <td width="50%"><img src="docs/en/network.png" alt="Network and domain"><br><sub><b>Network & domain.</b> Ports, domains via mc-router, per-server proxy</sub></td>
+    <td width="50%"><img src="docs/en/network.png" alt="Network and domain"><br><sub><b>Network & domain.</b> Ports, domains via mc-router, server traffic direct or via VLESS</sub></td>
     <td width="50%"><img src="docs/en/files.png" alt="File manager"><br><sub><b>Files.</b> Browse, edit, upload and extract archives</sub></td>
   </tr>
   <tr>
@@ -136,8 +136,12 @@ Example: `PANEL_PORT=9090 ADMIN_PASSWORD=MySecret123 ./install.sh`
     <td width="50%"><img src="docs/en/template.png" alt="Create from a template"><br><sub><b>Templates.</b> A new server from a saved template</sub></td>
   </tr>
   <tr>
-    <td width="50%"><img src="docs/en/discord-setup.png" alt="Connecting Discord"><br><sub><b>Discord.</b> Paste the webhook URL, choose the address players see (a domain, a public IP or a LAN address) and, if needed, a proxy</sub></td>
-    <td width="50%"><img src="docs/en/discord.png" alt="Discord status board"><br><sub><b>Status board.</b> Refresh rate, event notifications, proxy and a preview of the message</sub></td>
+    <td width="50%"><img src="docs/en/discord.png" alt="Discord bot"><br><sub><b>Discord.</b> Your own bot or a webhook, channels for the board and events, online status</sub></td>
+    <td width="50%"><img src="docs/en/discord-look.png" alt="Discord message look"><br><sub><b>Message look.</b> Title, text, fields and footer with a channel preview</sub></td>
+  </tr>
+  <tr>
+    <td width="50%"><img src="docs/en/vless.png" alt="VLESS and proxy"><br><sub><b>VLESS.</b> The node and the mode (proxy or TUN) are chosen once</sub></td>
+    <td width="50%"><img src="docs/en/attempts.png" alt="Could not join"><br><sub><b>Could not join.</b> Who was stopped by the whitelist, a ban or the licence check</sub></td>
   </tr>
   <tr>
     <td width="50%"><img src="docs/en/groups.png" alt="Player groups"><br><sub><b>Player groups.</b> Standard and your own groups, what each one can do, the pencil opens the editor</sub></td>
@@ -294,7 +298,7 @@ Until the move succeeds the source server stays untouched. On an error at any st
 <summary><b>What is not moved</b></summary>
 
 - **The domain.** It is configured per machine: set it up again on the "Network & domain" tab.
-- **The server proxy.** Proxy nodes are stored in each machine's panel.
+- **The VLESS node.** It is chosen in each machine's panel. The server's "Via VLESS" switch is moved along.
 - **The port** is kept if free on the new machine, otherwise the next free one is used.
 - Servers containing symbolic links are not moved (such archives are rejected for safety).
 </details>
@@ -314,19 +318,61 @@ Files that are not on Modrinth (built by hand or taken from other sites) are lis
 
 The **Map** tab (Paper and Purpur servers) enables [Dynmap](https://modrinth.com/plugin/dynmap) in one click: the panel adds the plugin to the Modrinth auto-install list, picks a free port for the map page (from 8123–8199) and shows a link and a preview. The plugin is downloaded on the next server start. **Render** starts a full render of the world. To share the map with friends, forward the shown port on your router.
 
-## 💬 Discord status board
+## 🔀 VLESS: proxy and TUN
 
-The **Discord** tab (under "System") turns a single message in your channel into a live status board: online or offline, player count and names, version, address, uptime and memory. No bot is needed, just a webhook.
+If installer sites, CurseForge, Mojang or Discord are blocked where you live, the panel sends traffic through your VLESS server. The node and the mode are chosen **once** in **Settings → VLESS and proxy**. After that there is only a **Direct / Via VLESS** switch everywhere: on the server page (**Network & domain → Server traffic**), for the panel's CurseForge requests and in the Discord tab.
+
+<p align="center"><img src="docs/en/vless.png" alt="VLESS and proxy in the settings" width="760"></p>
+
+1. Load a 3x-ui subscription (or paste its content), add a separate `vless://` link or enter your own proxy.
+2. Mark the node the traffic goes through, for example `RIGA-BOT`. The **Check** button on each node shows whether it responds.
+3. Choose the mode:
+   - **Proxy.** Core installation and mod and modpack downloads go through the node: the programs get a proxy address. The server itself works direct.
+   - **TUN.** **All** outgoing server traffic goes through the node: downloads, Mojang licence checks, mod and plugin requests. Nothing has to be configured in the programs. An xray runs next to the server, and the server's outgoing TCP connections are transparently redirected into it. UDP (for example DNS) goes direct.
+4. On the server page turn on **Via VLESS** and save. The switch applies on the next server start; changing the node or the mode takes effect at once, no restart needed.
+
+- Player connections to the server always go direct, so in-game latency does not change.
+- In TUN mode the server page shows whether the interception works. If it did not start (no nftables or iptables in the kernel), the server keeps working direct and the reason is shown there.
+- If the node disappears from the subscription, the active node is cleared, while the **Via VLESS** switches stay and work again once you pick a node.
+- If a node link asks for a random TLS fingerprint (`fp=random`), the panel uses `chrome`: REALITY servers reject some random variants, and the node would work only now and then.
+- For servers on nodes, the node and the mode are chosen in the panel of the machine that runs the server.
+
+## 💬 Discord status board and bot
+
+The **Discord** tab (under "System") turns a single message in your channel into a live status board: online or offline, player count and names, version, address, uptime and memory. Choose the sender: a channel **webhook** (no bot needed) or **your own bot**, which the panel runs itself.
+
+<table>
+  <tr>
+    <td width="50%"><img src="docs/en/discord-setup.png" alt="Connecting Discord"><br><sub><b>Connecting.</b> A webhook or your own bot, with a hint where to get the token</sub></td>
+    <td width="50%"><img src="docs/en/discord.png" alt="Discord bot"><br><sub><b>The bot is running.</b> Channels for the board and events, online status, refresh rate</sub></td>
+  </tr>
+  <tr>
+    <td width="50%"><img src="docs/en/discord-look.png" alt="Message look"><br><sub><b>Message look.</b> Title, text, fields and footer, the channel preview updates at once</sub></td>
+    <td width="50%"><img src="docs/en/discord-bot.png" alt="Bot profile"><br><sub><b>How the bot looks.</b> Name, avatar, "About me" and status right from the panel</sub></td>
+  </tr>
+</table>
+
+**Webhook** (the simplest way):
 
 1. In Discord open the channel: **Channel settings → Integrations → Webhooks → New Webhook → Copy Webhook URL**.
-2. In the panel open the server → **Discord**, paste the URL and click **Connect**.
-3. Choose the **address players see**: ready-made options (the server domain, the machine's public address, the LAN address) fill in with one click, or type your own: a domain, a public IP or a LAN address, with or without a port.
+2. In the panel open the server → **Discord** → **Webhook**, paste the URL and click **Connect**.
 
-The panel edits the same message instead of flooding the channel. It refreshes every 30 seconds, 1, 2 or 5 minutes, and a start, a stop or a change in player count reaches the board almost immediately. Optionally, separate messages announce events, each with its own switch: 'server started' (off by default), 'stopped', 'crashed', 'player joined or left'. The same server-state event arrives at most once every 10 minutes, so restarts do not clutter the channel. **Send again** deletes the old message and posts a fresh one (for example, to pin it).
+**Your own bot:**
 
-- The webhook URL is a secret: the panel never shows it in the interface and leaves it out of clones, migrations and templates. `@everyone` mentions in messages are disabled.
-- Discord is blocked by some providers. The tab has its own **Send through a proxy** block: turn it on and pick a node from those added under **Settings → "Прокси для серверов"** (a 3x-ui subscription, a `vless://` link or your own proxy). Only this board's requests use it; the rest of the traffic is unchanged. **Check connection** shows at once whether Discord opens and accepts the webhook. For servers on nodes, the nodes of the machine that runs the server are used.
-- If the panel stops, the message stops updating; the timestamp in it shows this.
+1. Open the [Discord Developer Portal](https://discord.com/developers/applications), click **New Application**, then in **Bot** click **Reset Token** and copy the token.
+2. In the panel open the server → **Discord** → **Your own bot**, paste the token and click **Connect the bot**.
+3. Click **Invite the bot to a Discord server**: an invite with the required permissions opens (view channel, send messages, embed links, read history).
+4. Choose the Discord server, the **status board channel** and, if you like, a separate **events channel**, then **Start the bot**. The bot writes only to the chosen channels and stays silent in the others, even if it can see them.
+
+The bot stays online and shows a status under its name, for example **Playing Survival: 3/20**. The status type (playing, watching, listening, competing, custom text) and the text with the `{server}`, `{online}`, `{max}`, `{address}`, `{version}` placeholders are set in the **How the bot looks** card. The dot is green while the server runs, yellow while it starts and red when it is off. The same card changes the bot's **name, avatar and "About me"**: the preview on the right shows the profile as Discord will. For a webhook, the sender name and avatar are changed the same way.
+
+The **How the message looks** card sets the title, the text under it (Discord formatting works), which fields to show and the footer. The channel preview on the right updates at once, and after saving the board in the channel looks the same.
+
+The panel edits the same message instead of flooding the channel. It refreshes every 30 seconds, 1, 2 or 5 minutes, and a start, a stop or a change in player count reaches the board almost immediately. Optionally, separate messages announce events, each with its own switch: 'server started' (off by default), 'stopped', 'crashed', 'player joined or left'. The same server-state event arrives at most once every 10 minutes. **Send again** deletes the old message and posts a fresh one (for example, to pin it). When the channel changes, the old board is deleted.
+
+- The webhook URL and the bot token are secrets: the panel never shows them in the interface and leaves them out of clones, migrations and templates. `@everyone` mentions in messages are disabled.
+- Discord is blocked by some providers. The **Connection to Discord** block switches the board requests and the bot connection to **Via VLESS** (the node from the [VLESS settings](#-vless-proxy-and-tun)). The rest of the traffic is unchanged. **Check connection** shows at once whether Discord opens and accepts the webhook or the token.
+- If the panel stops, the message stops updating (the timestamp in it shows this) and the bot goes offline.
 
 ## 👥 Player groups
 
@@ -365,6 +411,18 @@ The pencil on a group card opens the editor. Built-in groups can be edited, and 
 ### If the plugins do not start
 
 The Minecraft server does not run as root, so the `plugins` folder must belong to its user. If an earlier panel version created it, the plugins get disabled with an `AccessDeniedException`, and commands like `list` and `weather` answer "unexpected error". The panel fixes the permissions by itself when you open the **Players** tab and suggests restarting the server. On Paper and Purpur it also runs vanilla commands (`list`, `kick`, `ban`, `tell`, `gamemode`, `weather`, `time` and others) with the `minecraft:` prefix so plugins cannot intercept them.
+
+## 🚪 Could not join
+
+The **Players** tab has a **Could not join** column next to the online list: players stopped by the whitelist or a ban, who failed the licence check, came with a different version or left while joining. Each entry shows the reason, the number of attempts, when the last one was and the address it came from.
+
+<p align="center"><img src="docs/en/attempts.png" alt="The Could not join column" width="900"></p>
+
+While a player is offline, you can act right from the column: **Add to the whitelist**, **Ban** or **Unban**, **Name tag** (the nick goes into the name tag form, and the tag and the group apply on the first join). The cross hides the player from the list; new attempts appear again.
+
+- The list comes from the server logs for the last 30 days, so it is available even while the server is off. The whitelist and bans change through RCON, so the server has to be running for them.
+- A player disappears from the column after a successful join.
+- On a server without licences (`online-mode=false`), Minecraft whitelists and bans the licensed UUID of the nick, while the player joins with a different UUID. This is how the game works: on such servers it is easier to turn the whitelist off for a while.
 
 ## 🧹 World clearing
 
@@ -416,7 +474,7 @@ To search and install CurseForge modpacks, get a free API key at [console.cursef
 1. Delete (or stop) all servers in the panel.
 2. Remove the panel: `docker compose down --rmi all`
 3. Optionally delete the data: `rm -rf <DATA_DIR>` (**this permanently deletes worlds and backups**).
-4. Leftover helper containers, if any: `docker rm -f mcpanel-router mcpanel-xray mcpanel-proxy-relay` and `docker network rm mcpanel`.
+4. Leftover helper containers, if any: `docker rm -f mcpanel-router mcpanel-xray mcpanel-proxy-relay`, TUN sidecars `docker rm -f $(docker ps -aq -f name=mcpanel-tun-)` and `docker network rm mcpanel`.
 </details>
 
 ## 🛠️ How it works
@@ -439,6 +497,7 @@ To search and install CurseForge modpacks, get a free API key at [console.cursef
 
 - Every Minecraft server is a separate [`itzg/minecraft-server`](https://github.com/itzg/docker-minecraft-server) container created and configured by the panel.
 - Commands and the player list go through RCON (a unique password is generated per server).
+- VLESS: the `mcpanel-xray` container provides a fixed entry for the active node, and in TUN mode each server "via VLESS" gets a `mcpanel-tun-…` sidecar in the server's network namespace.
 - Backend: Express, `dockerode`, WebSocket. Frontend: Preact + htm with no build step, just plain files in `public/`.
 
 ## 🔐 Security
@@ -473,6 +532,12 @@ You need three things: the server port open in the firewall, forwarded on your r
 <summary><b>Port 25565 is taken</b></summary>
 
 It is reserved for `mc-router` as soon as any server has a domain set. Give the other servers a different port on the **Network & domain** tab.
+</details>
+
+<details>
+<summary><b>Modpacks or mods do not download</b></summary>
+
+If CurseForge, Modrinth or Mojang are unavailable from your provider, pick a node in **Settings → VLESS and proxy** (a 3x-ui subscription or a `vless://` link) and turn on **Via VLESS** on the server page. More: [VLESS: proxy and TUN](#-vless-proxy-and-tun).
 </details>
 
 ## 🤝 Contributing

@@ -8,7 +8,8 @@ import p6 from './en-6.js';
 import p7 from './en-7.js';
 import p8 from './en-8.js';
 import p9 from './en-9.js';
+import p10 from './en-10.js';
 import PATTERNS from './patterns.js';
 
-export const EN = { ...p1, ...p2, ...p3, ...p4, ...p5, ...p6, ...p7, ...p8, ...p9 };
+export const EN = { ...p1, ...p2, ...p3, ...p4, ...p5, ...p6, ...p7, ...p8, ...p9, ...p10 };
 export { PATTERNS };

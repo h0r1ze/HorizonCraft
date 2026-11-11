@@ -8,6 +8,7 @@ import crypto from 'crypto';
 import * as M from '../public/mc.js';
 import { resolveNick } from './chat.js';
 import * as groupsMod from './groups.js';
+import * as tun from './tun.js';
 
 const sleep = ms => new Promise(r => setTimeout(r, ms));
 const pad = n => String(n).padStart(2, '0');
@@ -127,6 +128,7 @@ async function pollServer(cfg) {
   let L = live.get(cfg.id);
   if (!L) { L = { hist: [], running: false, online: [], count: 0, max: null }; live.set(cfg.id, L); }
   const info = await dk.inspect(cfg.id).catch(() => null);
+  tun.sync(cfg, info).catch(e => console.error('tun', e.message));   // режим TUN: спутник xray рядом с сервером
   if (!info?.State.Running) { L.running = false; L.online = []; L.count = 0; L.cpu = 0; L.cores = 0; L.mem = 0; return; }
   if (!L.running) L.hist = [];
   const st = await dk.stats(cfg.id, true).catch(() => null);

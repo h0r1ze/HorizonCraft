@@ -13,6 +13,8 @@ import * as dk from './dock.js';
 import * as sv from './services.js';
 import * as imp from './importer.js';
 import * as P from './proxy.js';
+import * as tun from './tun.js';
+import * as attemptsMod from './attempts.js';
 import * as M from '../public/mc.js';
 import * as chat from './chat.js';
 import * as nodes from './nodes.js';
@@ -125,11 +127,9 @@ function sanitize(b, cur = {}) {
   }
   if ('javaTag' in b) { if (!JAVA.includes(b.javaTag)) throw bad('Недопустимая версия Java'); o.javaTag = b.javaTag; }
   if ('proxy' in b) {
-    const p = b.proxy || {};
-    const on = !!p.on, node = String(p.node || '');
-    if (on && !node) throw bad('Выберите узел прокси');
-    if (on && !P.nodeExists(node)) throw bad('Выбранный узел прокси не найден');
-    o.proxy = { on, node, scope: p.scope === 'all' ? 'all' : 'install' };
+    const on = !!(b.proxy || {}).on;
+    if (on && !P.active().node) throw bad('Сначала выберите узел VLESS в Настройках');
+    o.proxy = { on };
   }
   if ('loaderVersion' in b) {
     if (!/^[A-Za-z0-9._-]{0,40}$/.test(String(b.loaderVersion))) throw bad('Недопустимая версия загрузчика');
@@ -416,7 +416,7 @@ export function createRouter() {
       cfApiKeySet: !!s.cfApiKey,
       cfSearchOk: s.cfApiKey ? (s.cfSearchOk ?? null) : null,
       cfApiKeyHint: s.cfApiKey ? '••••' + s.cfApiKey.slice(-4) : '',
-      panelProxy: s.panelProxy || { on: false, node: '' },
+      panelProxy: { on: !!s.panelProxy?.on },
     });
   });
   r.put('/settings', h(async (req, res) => {
@@ -444,10 +444,9 @@ export function createRouter() {
     // Переключатель: запросы самой панели к CurseForge идут через выбранный узел прокси.
     let probe = null;
     if ('panelProxy' in b) {
-      const p = b.panelProxy || {};
-      const on = !!p.on, node = String(p.node || '');
-      if (on && !P.nodeExists(node)) throw bad('Выберите узел прокси');
-      s.panelProxy = { on, node: on ? node : (s.panelProxy?.node || '') };
+      const on = !!(b.panelProxy || {}).on;
+      if (on && !P.active().node) throw bad('Сначала выберите узел VLESS');
+      s.panelProxy = { on };
       if (s.cfApiKey) { probe = await probeCurseForge(s.cfApiKey); s.cfSearchOk = searchState(probe); }
     }
     store.save();
@@ -461,6 +460,7 @@ export function createRouter() {
   const proxyState = () => ({
     nodes: P.publicNodes(), subscription: P.publicSubscription(),
     external: store.get().settings.downloadProxy || '',
+    active: { ...P.active(), name: P.activeName() },
   });
   const ve = fn => { try { return fn(); } catch (e) { throw e.status ? e : bad(e.message); } };
   const applyProxy = async () => {
@@ -505,6 +505,16 @@ export function createRouter() {
     if (v) s.downloadProxy = v; else { delete s.downloadProxy; P.dropFromServers('external'); }
     await applyProxy();
     res.json(proxyState());
+  }));
+  // Активный узел и режим: выбираются один раз, дальше везде только переключатель «напрямую / через VLESS»
+  r.put('/proxy/active', h(async (req, res) => {
+    ve(() => P.setActive(req.body?.node, req.body?.mode));
+    await applyProxy();
+    tun.syncAll().catch(e => console.error('tun', e.message));
+    res.json(proxyState());
+  }));
+  r.get('/servers/:id/proxy', h(async (req, res) => {
+    res.json({ on: !!req.cfg.proxy?.on, active: { ...P.active(), name: P.activeName() }, tun: P.tunWanted(req.cfg) ? tun.state.get(req.cfg.id) || { pending: true } : null });
   }));
   r.post('/proxy/test', h(async (req, res) => {
     const node = String(req.body?.node || '');
@@ -688,6 +698,7 @@ export function createRouter() {
 
   r.delete('/servers/:id', h(async (req, res) => {
     await removeServer(req.cfg, req.query.data === '1');
+    tun.syncAll().catch(() => {});
     res.json({ ok: true });
   }));
 
@@ -729,6 +740,7 @@ export function createRouter() {
       running: !!info?.State.Running, online: [], max: null,
       ops: readNames(id, 'ops.json'), whitelist: readNames(id, 'whitelist.json'),
       banned: readNames(id, 'banned-players.json'), tags: req.cfg.tags || {}, groups: groupsMod.membersOf(req.cfg),
+      attempts: attemptsMod.list(req.cfg),
     };
     if (out.running) {
       const t = await dk.rcon(id, 'list');
@@ -736,6 +748,14 @@ export function createRouter() {
       if (m) { out.max = +m[2]; out.online = m[3].split(',').map(x => x.trim()).filter(Boolean).map(x => chat.resolveNick(x, req.cfg.tags) || x); }
     }
     res.json(out);
+  }));
+  // Скрыть неудачные попытки входа одного игрока (name) или всех. Новые попытки появятся снова.
+  r.post('/servers/:id/attempts/hide', h(async (req, res) => {
+    const name = String(req.body?.name || '');
+    if (name && !/^[A-Za-z0-9_.]{1,32}$/.test(name)) throw bad('Недопустимый ник');
+    attemptsMod.hide(req.cfg, name);
+    store.save();
+    res.json({ attempts: attemptsMod.list(req.cfg) });
   }));
   r.post('/servers/:id/players/:action', h(async (req, res) => {
     const name = String(req.body.name || '');

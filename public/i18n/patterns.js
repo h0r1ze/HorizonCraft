@@ -121,4 +121,11 @@ export default [
   [/^Не удалось пересоздать контейнер панели: (.+)$/, (t, a) => `Could not recreate the panel container: ${a}`],
   [/^Не удалось найти контейнер панели: (.+)$/, (t, a) => `Could not find the panel container: ${a}`],
   [/^Не удалось запустить смену порта: (.+)$/, (t, a) => `Could not start the port change: ${a}`],
+  // ---- VLESS, Discord: сообщения с подстановками
+  [/^Нет связи с Discord даже через VLESS «(.+)»\. Проверьте узел в Настройках или выберите другой\.$/, (t, a) => `No connection to Discord even via VLESS '${a}'. Check the node in Settings or choose another one.`],
+  [/^ограничивает частоту смены (имени|профиля|описания)\. Попробуйте позже\.$/, (t, a) => `limits how often the ${({ 'имени': 'name', 'профиля': 'profile', 'описания': 'description' })[a]} can be changed. Try again later.`],
+  [/^не принял изменение \((имени|профиля|описания)\): (.+)$/s, (t, a, b) => `did not accept the change (${({ 'имени': 'name', 'профиля': 'profile', 'описания': 'description' })[a]}): ${b}`],
+  [/^отклонил подключение бота \(код (\d+)\)$/, (t, a) => `rejected the bot connection (code ${a})`],
+  [/^просит подождать (\d+) с$/, (t, a) => `asks to wait ${a} s`],
+  [/^Свой прокси (\S+)$/, (t, a) => `Own proxy ${a}`],
 ];

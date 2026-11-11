@@ -22,6 +22,9 @@ export function vlessOutbound(raw, tag = 'proxy') {
     if (!TEXT.test(v)) throw new Error(`Недопустимое значение параметра ${k}`);
     return v;
   };
+  // Случайный отпечаток TLS (fp=random, randomized) xray выбирает один раз при запуске, и часть вариантов серверы REALITY
+  // отвергают («received real certificate»): узел то работает, то нет до следующего перезапуска. Берём устойчивый chrome.
+  const fp = /^random/i.test(get('fp')) || !get('fp') ? 'chrome' : get('fp');
   const type = get('type', 'tcp').toLowerCase();
   const security = get('security', 'none').toLowerCase();
   if (!['tcp', 'ws', 'grpc', 'http', 'h2', 'httpupgrade', 'xhttp', 'splithttp'].includes(type)) throw new Error(`Транспорт ${type} не поддерживается`);
@@ -32,14 +35,14 @@ export function vlessOutbound(raw, tag = 'proxy') {
   if (security === 'tls') {
     stream.tlsSettings = {
       serverName: get('sni') || get('host') || host,
-      fingerprint: get('fp', 'chrome'),
+      fingerprint: fp,
       ...(get('alpn') ? { alpn: get('alpn').split(',') } : {}),
     };
   } else {
     if (!get('pbk')) throw new Error('Для Reality в ссылке нужен публичный ключ (pbk)');
     if (!get('sni')) throw new Error('Для Reality в ссылке нужен параметр sni');
     stream.realitySettings = {
-      serverName: get('sni'), fingerprint: get('fp', 'chrome'),
+      serverName: get('sni'), fingerprint: fp,
       publicKey: get('pbk'), shortId: get('sid'), spiderX: get('spx'),
     };
   }

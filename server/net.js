@@ -7,9 +7,7 @@ import { getGateway } from './dock.js';
 const agents = new Map();
 
 export function panelEndpoint() {
-  const pp = store.get().settings.panelProxy;
-  if (!pp?.on || !P.nodeExists(pp.node)) return null;
-  return P.endpoints(pp.node, getGateway());
+  return store.get().settings.panelProxy?.on ? P.activeEndpoint(getGateway()) : null;
 }
 
 /** Запрос напрямую (ep пустой) или через HTTP-вход выбранного узла прокси. */
@@ -21,10 +19,9 @@ export async function proxyFetch(ep, url, init = {}) {
 }
 export const cfFetch = (url, init = {}) => proxyFetch(panelEndpoint(), url, init);
 
-/** Точка прокси по настройке { on, node }; null, если прокси выключен или узел пропал. */
+/** Точка прокси по переключателю { on }: постоянный вход активного узла; null, если выключено или узел не выбран. */
 export function endpointOf(p) {
-  if (!p?.on || !P.nodeExists(p.node)) return null;
-  return P.endpoints(p.node, getGateway());
+  return p?.on ? P.activeEndpoint(getGateway()) : null;
 }
 
 /** Два пробных запроса: сам ключ и поиск. Возвращает коды ответа (0, если связи нет). */

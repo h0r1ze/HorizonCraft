@@ -11,6 +11,10 @@ export const XRAY_HOST = `${NAME_PREFIX}-xray`;
 export const BASE_PORT = 10810;
 export const SOCKS_OFFSET = 1000;
 const MAX_NODES = 80;
+/* Активный узел: выбирается один раз в настройках. Всё, что включено «через VLESS», ходит через его постоянные входы. */
+export const ACTIVE_HTTP = 10809, ACTIVE_SOCKS = 11809;
+export const TUN_PORT = 12345, TUN_UID = 23333;
+export const MODES = ['proxy', 'tun'];
 
 const st = () => store.get().settings;
 export const nodeIdOf = link => crypto.createHash('sha1').update(String(link).trim()).digest('hex').slice(0, 8);
@@ -22,6 +26,36 @@ export function externalAddr() {
   return m ? { host: m[1], port: m[2] } : null;
 }
 export const nodeExists = id => (id === 'external' ? !!externalAddr() : nodes().some(n => n.id === id));
+
+/** Выбранный в настройках узел и режим: proxy (программам выдаётся адрес прокси) или tun (весь исходящий трафик сервера). */
+export function active() {
+  const v = st().vless || {};
+  const node = v.node && nodeExists(v.node) ? v.node : '';
+  return { node, mode: v.mode === 'tun' ? 'tun' : 'proxy' };
+}
+export function activeName() {
+  const { node } = active();
+  if (!node) return '';
+  if (node === 'external') return 'Свой прокси ' + (st().downloadProxy || '');
+  return nodes().find(n => n.id === node)?.name || '';
+}
+export function setActive(node, mode) {
+  const s = st(), cur = active();
+  const n = node === undefined ? cur.node : String(node || '');
+  if (n && !nodeExists(n)) throw new Error('Узел не найден');
+  const m = mode === undefined ? cur.mode : String(mode);
+  if (!MODES.includes(m)) throw new Error('Режим: proxy или tun');
+  s.vless = { node: n, mode: m };
+}
+/** Адрес постоянных входов активного узла или null, если узел не выбран. Свой прокси используется напрямую, без xray. */
+export function activeEndpoint(gateway) {
+  const { node } = active();
+  if (!node) return null;
+  if (node === 'external') return endpoints('external', gateway);
+  return { http: `${XRAY_HOST}:${ACTIVE_HTTP}`, socksHost: XRAY_HOST, socksPort: ACTIVE_SOCKS };
+}
+/** Нужен ли серверу прозрачный перехват всего трафика. */
+export const tunWanted = cfg => !!cfg.proxy?.on && active().mode === 'tun' && !!active().node;
 
 /** Сохраняет список узлов и закрепляет за каждым постоянный порт внутри сети Docker. */
 export function setNodes(list) {
@@ -74,41 +108,77 @@ export function needsInstall(cfg) {
   return false;
 }
 
-/** Переменные окружения контейнера Minecraft для выбранного сервером узла.
-    PROXY охватывает загрузки самой оболочки образа. Установщик Forge и NeoForge запускается отдельным
-    процессом Java и берёт прокси только из системных свойств, поэтому ему они передаются через JAVA_TOOL_OPTIONS. */
+/** Переменные окружения контейнера Minecraft. Адрес прокси получают оболочка образа и установщики (Forge и NeoForge
+    запускаются отдельным процессом Java и берут прокси только из системных свойств). Адрес не зависит от выбранного узла
+    и режима, поэтому смена узла или режима не требует пересоздавать сервер. В режиме tun остальной трафик заворачивается прозрачно. */
 export function proxyEnvFor(cfg, gateway) {
-  const p = cfg.proxy;
-  if (!p?.on) return {};
-  const ep = endpoints(p.node, gateway);
+  if (!cfg.proxy?.on) return {};
+  const ep = activeEndpoint(gateway);
   if (!ep) return {};
   const e = { PROXY: ep.http };
-  if (p.scope === 'all') {
-    e.JAVA_TOOL_OPTIONS = `-DsocksProxyHost=${ep.socksHost} -DsocksProxyPort=${ep.socksPort}`;
-  } else if (needsInstall(cfg)) {
+  if (needsInstall(cfg)) {
     const [h, port] = ep.http.split(':');
     e.JAVA_TOOL_OPTIONS = `-Dhttp.proxyHost=${h} -Dhttp.proxyPort=${port} -Dhttps.proxyHost=${h} -Dhttps.proxyPort=${port}`;
   }
   return e;
 }
 
-/** Конфиг xray: для каждого узла свой HTTP- и SOCKS-вход, привязанный к своему выходу. */
-export function buildXrayConfig() {
+/** Исходящее подключение xray для узла: VLESS или свой прокси (SOCKS5). */
+export function outboundFor(id, tag, gateway) {
+  if (id === 'external') {
+    const e = externalAddr();
+    if (!e) return null;
+    return { tag, protocol: 'socks', settings: { servers: [{ address: isLoopback(e.host) ? gateway : e.host, port: +e.port }] } };
+  }
+  const n = nodes().find(x => x.id === id);
+  if (!n) return null;
+  try { return vlessOutbound(n.link, tag).outbound; } catch { return null; }
+}
+
+/** Конфиг xray: постоянные входы активного узла и по паре входов на каждый узел (для проверки узлов из панели). */
+export function buildXrayConfig(gateway) {
   const ports = st().proxyPorts || {};
   const inbounds = [], outbounds = [], rules = [];
-  for (const n of nodes()) {
-    const p = ports[n.id];
-    if (!p) continue;
-    let ob;
-    try { ob = vlessOutbound(n.link, `out-${n.id}`).outbound; } catch { continue; }
-    inbounds.push({ tag: `http-${n.id}`, listen: '0.0.0.0', port: p, protocol: 'http', settings: { allowTransparent: false } });
-    inbounds.push({ tag: `socks-${n.id}`, listen: '0.0.0.0', port: p + SOCKS_OFFSET, protocol: 'socks', settings: { auth: 'noauth', udp: false } });
+  const add = (key, http, ob) => {
+    inbounds.push({ tag: `http-${key}`, listen: '0.0.0.0', port: http, protocol: 'http', settings: { allowTransparent: false } });
+    inbounds.push({ tag: `socks-${key}`, listen: '0.0.0.0', port: http + SOCKS_OFFSET, protocol: 'socks', settings: { auth: 'noauth', udp: false } });
     outbounds.push(ob);
-    rules.push({ type: 'field', inboundTag: [`http-${n.id}`, `socks-${n.id}`], outboundTag: `out-${n.id}` });
+    rules.push({ type: 'field', inboundTag: [`http-${key}`, `socks-${key}`], outboundTag: ob.tag });
+  };
+  // свой прокси панель и серверы используют напрямую, постоянный вход xray нужен только узлам VLESS
+  const act = active().node, actOb = act && act !== 'external' && outboundFor(act, 'out-active', gateway);
+  if (actOb) add('active', ACTIVE_HTTP, actOb);
+  for (const n of nodes()) {
+    const p = ports[n.id], ob = p && outboundFor(n.id, `out-${n.id}`, gateway);
+    if (ob) add(n.id, p, ob);
   }
   if (!inbounds.length) return null;
   outbounds.push({ tag: 'direct', protocol: 'freedom' });
   return { log: { loglevel: 'warning' }, inbounds, outbounds, routing: { domainStrategy: 'AsIs', rules } };
+}
+
+/** Конфиг xray для режима tun: принимает перехваченные соединения сервера и отправляет их через активный узел. */
+export function buildTunConfig(gateway) {
+  const ob = active().node && outboundFor(active().node, 'out-active', gateway);
+  if (!ob) return null;
+  return {
+    log: { loglevel: 'warning' },
+    inbounds: [{ tag: 'tun-in', listen: '127.0.0.1', port: TUN_PORT, protocol: 'dokodemo-door', settings: { network: 'tcp', followRedirect: true },
+      sniffing: { enabled: true, destOverride: ['http', 'tls'] } }],
+    outbounds: [ob],
+  };
+}
+
+/** Правила перехвата внутри сетевого пространства сервера: весь исходящий TCP, кроме локальных сетей и самого xray, уходит на вход tun.
+    Сначала nftables, при неудаче iptables. Скрипт выполняет одноразовый контейнер с правом NET_ADMIN. */
+export function tunScript(on) {
+  const nets = ['127.0.0.0/8', '10.0.0.0/8', '172.16.0.0/12', '192.168.0.0/16', '169.254.0.0/16', '224.0.0.0/4'];
+  const off = 'nft delete table ip hc_tun 2>/dev/null; iptables -t nat -D OUTPUT -j HC_TUN 2>/dev/null; iptables -t nat -F HC_TUN 2>/dev/null; iptables -t nat -X HC_TUN 2>/dev/null; ';
+  if (!on) return off + 'exit 0';
+  const nft = `table ip hc_tun { chain out { type nat hook output priority -100; meta skuid ${TUN_UID} return; ip daddr { ${nets.join(', ')} } return; meta l4proto tcp redirect to :${TUN_PORT}; }; }`;
+  const ipt = [`iptables -t nat -N HC_TUN`, `iptables -t nat -A HC_TUN -m owner --uid-owner ${TUN_UID} -j RETURN`,
+    ...nets.map(n => `iptables -t nat -A HC_TUN -d ${n} -j RETURN`), `iptables -t nat -A HC_TUN -p tcp -j REDIRECT --to-ports ${TUN_PORT}`, `iptables -t nat -A OUTPUT -j HC_TUN`].join(' && ');
+  return `${off}if echo '${nft}' | nft -f - ; then echo nft-ok; exit 0; fi; ${ipt} && echo ipt-ok`;
 }
 
 /* ---------- подписка 3x-ui ---------- */
@@ -190,13 +260,9 @@ export function clearSubscription() {
   store.save();
 }
 
-/** Серверы, которые использовали пропавший узел, отключаются от прокси. */
+/** Пропавший узел перестаёт быть активным. Переключатели «через VLESS» остаются и заработают, когда узел выберут снова. */
 export function dropFromServers(id) {
-  if (st().panelProxy?.node === id) st().panelProxy = { on: false, node: '' };
-  for (const cfg of store.get().servers) {
-    if (cfg.proxy?.node === id) cfg.proxy = { ...cfg.proxy, on: false, node: '' };
-    if (cfg.discord?.proxy?.node === id) cfg.discord.proxy = { on: false, node: '' };
-  }
+  if (st().vless?.node === id) st().vless = { ...st().vless, node: '' };
 }
 
 /** Публичное описание без секретов. */
@@ -228,5 +294,18 @@ export function migrate() {
     for (const cfg of store.get().servers) if (!cfg.proxy) cfg.proxy = { on: true, node: 'external', scope: 'install' };
   }
   if ('proxyMode' in s) { delete s.proxyMode; changed = true; }
+  // Один активный узел вместо выбора узла в каждом месте: берём тот, которым уже пользовались
+  if (!s.vless) {
+    const srv = store.get().servers;
+    const used = [...srv.filter(c => c.proxy?.on).map(c => c.proxy.node), s.panelProxy?.on && s.panelProxy.node,
+      ...srv.filter(c => c.discord?.proxy?.on).map(c => c.discord.proxy.node), ...srv.map(c => c.proxy?.node), nodes()[0]?.id];
+    s.vless = { node: used.find(id => id && nodeExists(id)) || '', mode: srv.some(c => c.proxy?.on && c.proxy.scope === 'all') ? 'tun' : 'proxy' };
+    for (const c of srv) {
+      if (c.proxy) c.proxy = { on: !!c.proxy.on };
+      if (c.discord?.proxy) c.discord.proxy = { on: !!c.discord.proxy.on };
+    }
+    if (s.panelProxy) s.panelProxy = { on: !!s.panelProxy.on };
+    changed = true;
+  }
   if (changed) store.save();
 }
