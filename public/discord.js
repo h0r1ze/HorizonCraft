@@ -285,6 +285,44 @@ const norm = x => ({
   proxy: { on: !!x.proxy?.on, name: x.proxy?.name || '', available: x.proxy?.available ?? !!(x.proxyNodes || []).length },
 });
 
+/** Способ отправки на уже подключённом табло: вебхук или свой бот. Смена не требует отключать Discord. */
+function KindSwitch({ s, d, f, run }) {
+  const [open, setOpen] = useState(false);
+  const [token, setToken] = useState('');
+  const [url, setUrl] = useState('');
+  const bot = d.kind === 'bot';
+  const toBot = async () => {
+    if (!token.trim()) return toast('Вставьте токен бота', 'err');
+    const r = await run(() => api(`/servers/${s.id}/discord/bot`, { method: 'POST', body: { token: token.trim(), proxy: f.proxy, lang: f.lang } }), 'Бот подключён. Теперь выберите канал.');
+    if (r) { setToken(''); setOpen(false); }
+  };
+  const toHook = async () => {
+    if (!d.hook && !url.trim()) return toast('Вставьте адрес вебхука', 'err');
+    const r = await run(() => api(`/servers/${s.id}/discord`, { method: 'PUT', body: { kind: 'webhook', on: true, ...(url.trim() ? { url: url.trim() } : {}) } }), 'Табло снова отправляется через вебхук');
+    if (r) { setUrl(''); setOpen(false); }
+  };
+  return html`<div class="col" style="gap:10px;border-top:1px solid var(--line);padding-top:14px">
+    <div class="row wrap"><h3 class="grow" style="margin:0">Способ отправки</h3>
+      <div class="seg" style="width:fit-content;white-space:nowrap">${[['webhook', 'Вебхук'], ['bot', 'Свой бот']].map(([k, n]) => html`<button type="button" key=${k} class=${(open ? k !== d.kind : k === d.kind) ? 'on' : ''} onClick=${() => setOpen(k !== d.kind)}>${n}</button>`)}</div></div>
+    ${!open ? html`<small class="muted">${bot ? 'Сейчас табло отправляет ваш бот. Нажмите «Вебхук», чтобы вернуться к вебхуку канала.' : 'Сейчас табло отправляется через вебхук. Нажмите «Свой бот», чтобы панель подняла вашего бота: он будет в сети со статусом и будет писать только в выбранные каналы.'}</small>`
+      : !bot ? html`<div class="col" style="gap:12px">
+        <ol class="dc-steps">
+          <li>Откройте <a href="https://discord.com/developers/applications" target="_blank" rel="noopener noreferrer">Discord Developer Portal</a> и нажмите <b>New Application</b>.</li>
+          <li>В разделе <b>Bot</b> нажмите <b>Reset Token</b> и скопируйте токен.</li>
+          <li>Вставьте токен сюда. Дальше панель покажет ссылку-приглашение и список каналов.</li>
+        </ol>
+        <${Field} label="Токен бота" hint="Старое сообщение вебхука будет удалено, бот отправит новое табло в выбранный канал. Адрес вебхука сохранится, к нему можно вернуться.">
+          <div class="row"><input type="password" autocomplete="off" placeholder="MTIzNDU2Nzg5…" value=${token} onInput=${e => setToken(e.target.value)} onKeyDown=${e => e.key === 'Enter' && toBot()} />
+            <${Btn} kind="primary" icon="rocket" onClick=${toBot}>Подключить бота</${Btn}></div></${Field}>
+        <div><${Btn} kind="ghost" onClick=${() => setOpen(false)}>Отмена</${Btn}></div></div>`
+      : html`<div class="col" style="gap:12px">
+        <${Field} label="Адрес вебхука" hint=${d.hook ? 'Если оставить пустым, будет использован сохранённый вебхук. Бот перестанет писать и уйдёт из сети.' : 'Настройки канала → Интеграции → Вебхуки → Новый вебхук → Копировать URL вебхука.'}>
+          <div class="row"><input type="password" autocomplete="off" placeholder=${d.hook || 'https://discord.com/api/webhooks/…'} value=${url} onInput=${e => setUrl(e.target.value)} onKeyDown=${e => e.key === 'Enter' && toHook()} />
+            <${Btn} kind="primary" icon="msg" onClick=${toHook}>Перейти на вебхук</${Btn}></div></${Field}>
+        <div><${Btn} kind="ghost" onClick=${() => setOpen(false)}>Отмена</${Btn}></div></div>`}
+  </div>`;
+}
+
 const formOf = x => ({
   on: x.on, interval: x.interval, address: x.address, lang: x.lang, events: x.events, proxy: { on: x.proxy.on }, look: x.look,
   bot: { guildId: x.bot.guildId, guildName: x.bot.guildName, channelId: x.bot.channelId, eventsChannelId: x.bot.eventsChannelId, activity: x.bot.activity, online: x.bot.online },
@@ -389,6 +427,7 @@ export function DiscordTab({ s }) {
         <${ProxyBox} s=${s} d=${d} value=${f.proxy} onChange=${v => setF({ ...f, proxy: v })} />
         <div class="row wrap" style="gap:10px">
           <${Btn} kind="primary" icon="rocket" disabled=${busy || !f.bot.channelId} onClick=${() => put(body({ on: true }), 'Готово, бот отправил табло в канал')}>${busy ? 'Запуск…' : 'Запустить бота'}</${Btn}>
+          ${d.hook && html`<${Btn} kind="ghost" icon="back" disabled=${busy} onClick=${() => put({ kind: 'webhook', on: true }, 'Табло снова отправляется через вебхук')}>Вернуться к вебхуку</${Btn}>`}
           <span class="grow"></span>
           <${Btn} kind="danger ghost" icon="x" disabled=${busy} onClick=${drop}>Отключить</${Btn}></div>
       </div>
@@ -412,6 +451,7 @@ export function DiscordTab({ s }) {
           : html`<span class="muted">Вебхук: <span class="mono" style="color:var(--text)">${d.hook}</span></span>`}
         <span class="muted">Последнее обновление: <b style="color:var(--text)">${d.sentAt ? ago(d.sentAt) : 'ещё не было'}</b></span>
       </div>
+      <${KindSwitch} s=${s} d=${d} f=${f} run=${run} />
       <${Toggle} on=${f.on} onChange=${v => setF({ ...f, on: v })} label="Обновлять табло в канале" />
       ${bot && html`<${ChannelPicker} s=${s} d=${d} value=${f.bot} onChange=${v => setF({ ...f, bot: v })} />`}
       <div class="row wrap" style="gap:20px 28px;align-items:flex-start">
