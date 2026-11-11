@@ -448,10 +448,10 @@ The panel's **Settings** page has four sections with a section menu on the left 
 
 | Section | What is there |
 |---|---|
-| **Appearance** | Language, interface layout, theme and panel background |
-| **Network** | The default public server address, [VLESS: node and mode](#-vless-proxy-and-tun) |
 | **Security** | [HTTPS and certificates](#-https-and-certificates), the panel port, certificate trust, password change |
 | **Servers and nodes** | The CurseForge key (and the panel's requests to it via VLESS), Minecraft images, server templates, nodes |
+| **Network** | The default public server address, [VLESS: node and mode](#-vless-proxy-and-tun) |
+| **Appearance** | Language, interface layout, theme and panel background |
 
 <p align="center"><img src="docs/en/settings.png" alt="The Network section of the settings" width="900"></p>
 

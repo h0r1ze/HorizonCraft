@@ -189,10 +189,10 @@ function UiPicker({ onUi }) {
 
 /* Разделы настроек: у каждого свой адрес #/settings/<раздел>, поэтому ссылки ведут сразу в нужное место. */
 export const SETTINGS_SECTIONS = [
-  ['look', 'Оформление', 'palette', 'Язык, вид интерфейса, тема и фон'],
-  ['network', 'Сеть', 'globe', 'Адрес серверов и VLESS'],
   ['security', 'Безопасность', 'shield', 'HTTPS, порт панели и пароль'],
   ['servers', 'Серверы и ноды', 'server', 'CurseForge, образы, шаблоны и ноды'],
+  ['network', 'Сеть', 'globe', 'Адрес серверов и VLESS'],
+  ['look', 'Оформление', 'palette', 'Язык, вид интерфейса, тема и фон'],
 ];
 function SettingsNav({ section }) {
   const ui = useUi();
@@ -204,7 +204,7 @@ function SettingsNav({ section }) {
 
 function SettingsPage({ onTheme, theme, onUi, section: sec0 }) {
   const ui = useUi();
-  const section = SETTINGS_SECTIONS.some(x => x[0] === sec0) ? sec0 : 'look';
+  const section = SETTINGS_SECTIONS.some(x => x[0] === sec0) ? sec0 : SETTINGS_SECTIONS[0][0];
   const meta = SETTINGS_SECTIONS.find(x => x[0] === section);
   const [s, setS] = useState(null);
   const [key, setKey] = useState('');

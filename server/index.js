@@ -17,6 +17,7 @@ import { startServices } from './services.js';
 import { cleanupOld } from './importer.js';
 import { migrate as migrateProxy } from './proxy.js';
 import * as tun from './tun.js';
+import { detectPort } from './tls/portchange.js';
 import { probeCurseForge, searchState } from './net.js';
 
 const here = path.dirname(fileURLToPath(import.meta.url));
@@ -102,6 +103,7 @@ for (const sig of ['SIGTERM', 'SIGINT']) {
   });
 }
 
+detectPort().catch(() => {});
 dk.joinNetwork().then(() => dk.syncProxy()).then(() => tun.syncAll()).catch(e => console.error('network', e.message));
 dk.ensureImage(`${dk.IMG}:latest`).catch(e => console.error('pull', e.message));
 dk.syncRouter().catch(e => console.error('router', e.message));

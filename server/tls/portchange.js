@@ -9,6 +9,18 @@ const bad = (m, s = 400) => Object.assign(new Error(m), { status: s });
 const FILE = path.join(DATA_DIR, 'tls', 'portchange.json');
 let running = false;
 
+/** Порт панели на хосте. Если переменная PANEL_PORT не задана (установка со старым docker-compose.yml),
+    при запуске он определяется по пробросу порта собственного контейнера. */
+export async function detectPort() {
+  if (Number(process.env.PANEL_PORT)) return Number(process.env.PANEL_PORT);
+  try {
+    const self = await docker.getContainer(os.hostname()).inspect();
+    const p = Number(self.HostConfig?.PortBindings?.[`${INNER_PORT}/tcp`]?.[0]?.HostPort);
+    if (validPort(p)) { process.env.PANEL_PORT = String(p); return p; }
+  } catch {}
+  return 0;
+}
+
 /** Итог последней смены порта (пишет вспомогательный контейнер): {ok, port, oldPort, error, at} или null. */
 export function last() {
   try { return JSON.parse(fs.readFileSync(FILE, 'utf8')); } catch { return null; }
