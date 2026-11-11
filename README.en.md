@@ -103,21 +103,21 @@ Example: `PANEL_PORT=9090 ADMIN_PASSWORD=MySecret123 ./install.sh`
 | 📦 **Import & clone** | Upload an existing server as an archive, or clone one together with its world |
 | 📊 **Monitoring** | CPU, memory and disk usage for the host and each server |
 | 🎨 **Looks** | Three interface layouts to choose from (Graphite, Light, Hosting) and 16 colour themes (eight dark and eight light, listed in separate groups), your own picture as the panel background, server covers and icons, coloured MOTD editor |
-| 🛡️ **VLESS** | A node from a 3x-ui subscription (or a `vless://` link) is chosen once, then there is only a "direct / via VLESS" switch. Proxy mode for downloads or TUN for all server traffic |
+| 🛡️ **VLESS** | A node from a 3x-ui subscription (or a `vless://` link) is chosen once. Each server has a Direct / VLESS / TUN switch right above the console: VLESS for downloads, TUN for all server traffic |
 
 ## 📸 Screenshots
 
 <table>
   <tr>
     <td width="50%"><img src="docs/en/server-overview.png" alt="Server overview"><br><sub><b>Server overview.</b> Players, CPU and memory over 30 minutes, quick actions</sub></td>
-    <td width="50%"><img src="docs/en/console.png" alt="Console"><br><sub><b>Console.</b> Live log and command input</sub></td>
+    <td width="50%"><img src="docs/en/console.png" alt="Console"><br><sub><b>Console.</b> Live log, commands and the Direct / VLESS / TUN traffic switch</sub></td>
   </tr>
   <tr>
     <td width="50%"><img src="docs/en/new-server.png" alt="Create a server"><br><sub><b>New server.</b> Paper, Vanilla, Purpur, Fabric, Forge, NeoForge and CurseForge packs</sub></td>
     <td width="50%"><img src="docs/en/mods.png" alt="Mods"><br><sub><b>Mods.</b> CurseForge search and Modrinth projects</sub></td>
   </tr>
   <tr>
-    <td width="50%"><img src="docs/en/network.png" alt="Network and domain"><br><sub><b>Network & domain.</b> Ports, domains via mc-router, server traffic direct or via VLESS</sub></td>
+    <td width="50%"><img src="docs/en/network.png" alt="Network and domain"><br><sub><b>Network & domain.</b> Ports, domains via mc-router, server traffic direct, via VLESS or TUN</sub></td>
     <td width="50%"><img src="docs/en/files.png" alt="File manager"><br><sub><b>Files.</b> Browse, edit, upload and extract archives</sub></td>
   </tr>
   <tr>
@@ -141,7 +141,7 @@ Example: `PANEL_PORT=9090 ADMIN_PASSWORD=MySecret123 ./install.sh`
     <td width="50%"><img src="docs/en/discord-look.png" alt="Discord message look"><br><sub><b>Message look.</b> Title, text, fields and footer with a channel preview</sub></td>
   </tr>
   <tr>
-    <td width="50%"><img src="docs/en/vless.png" alt="VLESS and proxy"><br><sub><b>VLESS.</b> The node and the mode (proxy or TUN) are chosen once</sub></td>
+    <td width="50%"><img src="docs/en/vless.png" alt="VLESS and proxy"><br><sub><b>VLESS.</b> The node and the default mode are chosen once</sub></td>
     <td width="50%"><img src="docs/en/attempts.png" alt="Could not join"><br><sub><b>Could not join.</b> Who was stopped by the whitelist, a ban or the licence check</sub></td>
   </tr>
   <tr>
@@ -321,7 +321,7 @@ The **Map** tab (Paper and Purpur servers) enables [Dynmap](https://modrinth.com
 
 ## 🔀 VLESS: proxy and TUN
 
-If installer sites, CurseForge, Mojang or Discord are blocked where you live, the panel sends traffic through your VLESS server. The node and the mode are chosen **once** in **Settings → Network → VLESS and proxy**. After that there is only a **Direct / Via VLESS** switch everywhere: on the server page (**Network & domain → Server traffic**), for the panel's CurseForge requests and in the Discord tab.
+If installer sites, CurseForge, Mojang or Discord are blocked where you live, the panel sends traffic through your VLESS server. The node and the default mode are chosen **once** in **Settings → Network → VLESS and proxy**. After that every server has a **Direct / VLESS / TUN** switch right above the console and on **Network & domain → Server traffic**, while the panel's CurseForge requests and the Discord tab have **Direct / Via VLESS**.
 
 <p align="center"><img src="docs/en/vless.png" alt="VLESS and proxy in the settings" width="760"></p>
 
@@ -330,11 +330,20 @@ If installer sites, CurseForge, Mojang or Discord are blocked where you live, th
 3. Choose the mode:
    - **Proxy.** Core installation and mod and modpack downloads go through the node: the programs get a proxy address. The server itself works direct.
    - **TUN.** **All** outgoing server traffic goes through the node: downloads, Mojang licence checks, mod and plugin requests. Nothing has to be configured in the programs. An xray runs next to the server, and the server's outgoing TCP connections are transparently redirected into it. UDP (for example DNS) goes direct.
-4. On the server page turn on **Via VLESS** and save. The switch applies on the next server start; changing the node or the mode takes effect at once, no restart needed.
+4. Pick **VLESS** or **TUN** for the server with the switch above the console. The choice is saved at once:
+   - **VLESS ↔ TUN** and node changes apply on the fly, the server is not restarted;
+   - switching between **Direct** and VLESS applies after a restart: a hint and a **Restart** button appear under the switch.
+
+<p align="center"><img src="docs/en/console.png" alt="Traffic switch above the console" width="760"></p>
+
+If the console shows download errors while the core or mods install, there is no need to open the settings: switch the server to VLESS or TUN right there. The same switch with explanations is on the **Network & domain** tab; both show the same state.
+
+<p align="center"><img src="docs/en/traffic.png" alt="Server traffic on the Network and domain tab" width="760"></p>
 
 - Player connections to the server always go direct, so in-game latency does not change.
 - In TUN mode the server page shows whether the interception works. If it did not start (no nftables or iptables in the kernel), the server keeps working direct and the reason is shown there.
-- If the node disappears from the subscription, the active node is cleared, while the **Via VLESS** switches stay and work again once you pick a node.
+- The mode in Settings is the default: it applies to servers whose mode has not been picked with their own switch.
+- If the node disappears from the subscription, the active node is cleared, while the servers' choices stay and work again once you pick a node.
 - If a node link asks for a random TLS fingerprint (`fp=random`), the panel uses `chrome`: REALITY servers reject some random variants, and the node would work only now and then.
 - For servers on nodes, the node and the mode are chosen in the panel of the machine that runs the server.
 
@@ -575,7 +584,7 @@ It is reserved for `mc-router` as soon as any server has a domain set. Give the 
 <details>
 <summary><b>Modpacks or mods do not download</b></summary>
 
-If CurseForge, Modrinth or Mojang are unavailable from your provider, pick a node in **Settings → Network → VLESS and proxy** (a 3x-ui subscription or a `vless://` link) and turn on **Via VLESS** on the server page. More: [VLESS: proxy and TUN](#-vless-proxy-and-tun).
+If CurseForge, Modrinth or Mojang are unavailable from your provider, pick a node in **Settings → Network → VLESS and proxy** (a 3x-ui subscription or a `vless://` link) and switch the server to **VLESS** or **TUN** above the console. More: [VLESS: proxy and TUN](#-vless-proxy-and-tun).
 </details>
 
 ## 🤝 Contributing

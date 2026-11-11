@@ -55,7 +55,9 @@ export function activeEndpoint(gateway) {
   return { http: `${XRAY_HOST}:${ACTIVE_HTTP}`, socksHost: XRAY_HOST, socksPort: ACTIVE_SOCKS };
 }
 /** Нужен ли серверу прозрачный перехват всего трафика. */
-export const tunWanted = cfg => !!cfg.proxy?.on && active().mode === 'tun' && !!active().node;
+export const tunWanted = cfg => !!cfg.proxy?.on && modeOf(cfg) === 'tun' && !!active().node;
+/** Режим сервера: свой (выбран переключателем на странице сервера) или общий из Настроек. */
+export const modeOf = cfg => (MODES.includes(cfg?.proxy?.mode) ? cfg.proxy.mode : active().mode);
 
 /** Сохраняет список узлов и закрепляет за каждым постоянный порт внутри сети Docker. */
 export function setNodes(list) {

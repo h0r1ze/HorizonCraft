@@ -57,16 +57,16 @@ export function ProxySettings() {
   return html`<div class="card col" id="vless-card">
     <div class="row wrap"><h2 class="grow" style="margin:0">VLESS и прокси</h2>
       <span class=${'badge ' + (act.node ? 'running' : '')}>${act.node ? html`включён · ${modeName(act.mode)}` : 'не используется'}</span></div>
-    <p class="muted" style="margin:0">Нужен, когда сайты установщиков, CurseForge или Discord закрыты в вашей стране. Здесь один раз выбираются узел и режим.
-      Дальше на странице сервера, в настройках CurseForge и в Discord остаётся только переключатель: напрямую или через VLESS.
+    <p class="muted" style="margin:0">Нужен, когда сайты установщиков, CurseForge или Discord закрыты в вашей стране. Здесь один раз выбираются узел и режим по умолчанию.
+      Дальше у каждого сервера над консолью и во вкладке «Сеть и домен» есть переключатель «Напрямую / VLESS / TUN», а в настройках CurseForge и в Discord — «напрямую или через VLESS».
       Подключения игроков к серверу всегда идут напрямую.</p>
 
     <div class="col" style="gap:10px">
-      <h3>Режим</h3>
+      <h3>Режим по умолчанию</h3>
       <div class="vmodes">${MODES.map(([id, n, text]) => html`<button key=${id} class=${'vmode ' + (act.mode === id ? 'on' : '')} disabled=${!!busy}
         onClick=${() => act.mode !== id && call('mode', () => api('/proxy/active', { method: 'PUT', body: { mode: id } }), 'Режим: ' + n)}>
         <b>${n}</b><span>${text}</span></button>`)}</div>
-      <small class="muted">Режим и узел можно менять на ходу, перезапускать серверы не нужно. В режиме TUN перехватываются TCP-соединения, UDP (например, DNS) идёт напрямую.</small>
+      <small class="muted">Для каждого сервера режим можно сменить переключателем «Напрямую / VLESS / TUN» над консолью или во вкладке «Сеть и домен». Режим и узел меняются на ходу. В режиме TUN перехватываются TCP-соединения, UDP (например, DNS) идёт напрямую.</small>
     </div>
 
     <div class="col" style="gap:10px">
@@ -128,28 +128,104 @@ export function ActiveLine({ active }) {
     : html`<div class="banner warn" style="margin:0">Узел VLESS ещё не выбран. Выберите его один раз в <a href="#/settings/network">Настройках → VLESS и прокси</a>.</div>`;
 }
 
-/** Блок на вкладке сервера: напрямую или через VLESS. Узел и режим общие, из Настроек. */
-export function ServerProxy({ s, value, onChange }) {
-  const [st, setSt] = useState(null);
-  const on = !!value?.on;
+/* Трафик сервера: одно общее состояние для переключателя у консоли и блока в «Сети и домене».
+   Оба места читают и меняют одно и то же, поэтому переключение в одном сразу видно в другом. */
+const trafficSubs = new Map();   // id сервера → { st, fns:Set, timer }
+function useTraffic(id) {
+  const [st, setSt] = useState(trafficSubs.get(id)?.st || null);
   useEffect(() => {
-    let alive = true;
-    const f = () => api(`/servers/${s.id}/proxy`).then(x => alive && setSt(x)).catch(() => {});
-    f(); const t = setInterval(f, 5000);
-    return () => { alive = false; clearInterval(t); };
-  }, [s.id]);
-  const act = st?.active, tun = st?.tun, saved = st && st.on === on;
-  return html`<div class="card col">
+    let e = trafficSubs.get(id);
+    if (!e) {
+      e = { st: null, fns: new Set(), timer: 0 };
+      e.load = () => api(`/servers/${id}/proxy`).then(x => { e.st = x; e.fns.forEach(f => f(x)); }).catch(() => {});
+      trafficSubs.set(id, e);
+    }
+    e.fns.add(setSt);
+    if (e.fns.size === 1) { e.load(); e.timer = setInterval(e.load, 4000); }
+    else if (e.st) setSt(e.st);
+    return () => { e.fns.delete(setSt); if (!e.fns.size) { clearInterval(e.timer); trafficSubs.delete(id); } };
+  }, [id]);
+  const put = x => { const e = trafficSubs.get(id); if (e) { e.st = x; e.fns.forEach(f => f(x)); } };
+  return [st, put];
+}
+
+const TRAFFIC = [
+  ['direct', 'Напрямую', 'globe', 'Сервер выходит в интернет сам'],
+  ['proxy', 'VLESS', 'shield', 'Через узел идут установка ядра, скачивание модов и сборок'],
+  ['tun', 'TUN', 'layers', 'Через узел идёт весь исходящий трафик сервера'],
+];
+const trafficOf = st => (!st?.on ? 'direct' : st.mode === 'tun' ? 'tun' : 'proxy');
+
+/** Переключатель «Напрямую / VLESS / TUN» с сохранением сразу. */
+function TrafficSeg({ s, st, put, busy, setBusy }) {
+  const cur = trafficOf(st), noNode = st && !st.active.node;
+  const pick = async k => {
+    if (k === cur || busy) return;
+    setBusy(true);
+    try {
+      const x = await api(`/servers/${s.id}/proxy`, { method: 'PUT', body: k === 'direct' ? { on: false } : { on: true, mode: k } });
+      put(x);
+      toast(k === 'direct' ? 'Трафик сервера: напрямую' : k === 'tun' ? 'Трафик сервера: TUN' : 'Трафик сервера: через VLESS');
+    } catch (e) { toast(e.message, 'err'); }
+    setBusy(false);
+  };
+  return html`<div class="seg via traffic" style="width:fit-content;white-space:nowrap">
+    ${TRAFFIC.map(([k, n, ic, tip]) => html`<button type="button" key=${k} class=${cur === k ? 'on' : ''} title=${tip}
+      disabled=${busy || (k !== 'direct' && noNode && cur !== k)} onClick=${() => pick(k)}><${Icon} n=${ic} size=${14} /> ${n}</button>`)}</div>`;
+}
+
+async function restartServer(s) {
+  if (!(await askConfirm('Перезапустить сервер, чтобы применить выбор трафика? Игроки будут отключены.'))) return;
+  try { await api(`/servers/${s.id}/action`, { method: 'POST', body: { action: 'restart' } }); toast('Перезапуск…'); }
+  catch (e) { toast(e.message, 'err'); }
+}
+
+/** Состояние под переключателем: нужен ли перезапуск, работает ли TUN. */
+function TrafficState({ s, st }) {
+  if (!st) return null;
+  const tun = st.tun;
+  return html`
+    ${st.restart && html`<div class="banner warn trafficwarn" style="margin:0"><span class="grow">${st.on ? 'Сервер ещё работает напрямую. Перезапустите его, чтобы применить.' : 'Сервер ещё работает через VLESS. Перезапустите его, чтобы применить.'}</span>
+      <${Btn} kind="sm" icon="refresh" onClick=${() => restartServer(s)}>Перезапустить</${Btn}></div>`}
+    ${st.on && st.mode === 'tun' && s.state === 'running' && tun && html`<div class=${'banner ' + (tun.error ? 'err' : 'info')} style="margin:0">
+      ${tun.ok ? 'TUN работает: трафик сервера идёт через узел.' : tun.error ? html`TUN не включился, сервер работает напрямую. ${tun.error}` : 'TUN включается…'}</div>`}`;
+}
+
+/** Строка над консолью: переключатель трафика и узел, чтобы при ошибках скачивания не искать настройку. */
+export function TrafficBar({ s }) {
+  const [st, put] = useTraffic(s.id);
+  const [busy, setBusy] = useState(false);
+  if (!st) return null;
+  return html`<div class="card trafficbar col" id="traffic-bar">
+    <div class="row wrap" style="gap:10px">
+      <span class="tlabel"><${Icon} n="globe" size=${14} /> Трафик</span>
+      <${TrafficSeg} s=${s} st=${st} put=${put} busy=${busy} setBusy=${setBusy} />
+      <small class="muted grow trunc">${st.active.node
+        ? html`Узел: <b style="color:var(--text)">${st.active.name}</b>`
+        : html`Узел VLESS не выбран · <a href="#/settings/network">выбрать</a>`}</small>
+      <a class="small" href=${`#/s/${s.id}/network`}>Подробнее</a>
+    </div>
+    <${TrafficState} s=${s} st=${st} />
+  </div>`;
+}
+
+/** Блок на вкладке «Сеть и домен»: тот же переключатель с пояснениями. Узел общий, из Настроек. */
+export function ServerProxy({ s }) {
+  const [st, put] = useTraffic(s.id);
+  const [busy, setBusy] = useState(false);
+  const act = st?.active, cur = trafficOf(st);
+  return html`<div class="card col" id="traffic-card">
     <div class="row wrap"><h2 class="grow" style="margin:0">Трафик сервера</h2>
-      <${ViaSwitch} on=${on} disabled=${st && !act.node} onChange=${v => onChange({ on: v })} /></div>
-    <p class="muted" style="margin:0">Как сервер выходит в интернет: напрямую или через узел VLESS. Подключения игроков идут напрямую и не меняются.</p>
-    ${st && (on || !act.node) && html`<${ActiveLine} active=${act} />`}
-    ${on && act?.node && html`<small class="muted">${act.mode === 'tun'
+      ${st && html`<${TrafficSeg} s=${s} st=${st} put=${put} busy=${busy} setBusy=${setBusy} />`}</div>
+    <p class="muted" style="margin:0">Как сервер выходит в интернет: напрямую, через узел VLESS или целиком через TUN. Подключения игроков идут напрямую и не меняются.
+      Этот же переключатель есть над консолью сервера.</p>
+    ${st && !act.node && html`<${ActiveLine} active=${act} />`}
+    ${st && act.node && cur !== 'direct' && html`<small class="muted">Узел: <b style="color:var(--text)">${act.name}</b> · <a href="#/settings/network">изменить в Настройках</a></small>`}
+    ${cur !== 'direct' && html`<small class="muted">${cur === 'tun'
       ? 'Режим TUN: через узел идёт весь исходящий трафик сервера (загрузки, проверка лицензий в Mojang, запросы модов и плагинов). Если узел перестанет работать, у сервера пропадёт выход в интернет, а игроки с лицензией не смогут зайти.'
-      : 'Режим «Прокси»: через узел идут установка ядра и скачивание модов и сборок. Сам сервер работает напрямую.'}</small>`}
-    ${on && saved && act?.mode === 'tun' && s.state === 'running' && tun && html`<div class=${'banner ' + (tun.ok ? 'info' : tun.error ? 'err' : 'info')} style="margin:0">
-      ${tun.ok ? 'TUN работает: трафик сервера идёт через узел.' : tun.error ? html`TUN не включился, сервер работает напрямую. ${tun.error}` : 'TUN включается…'}</div>`}
-    <small class="muted">Переключатель применится после сохранения и перезапуска сервера.</small>
+      : 'Режим VLESS: через узел идут установка ядра и скачивание модов и сборок. Сам сервер работает напрямую.'}</small>`}
+    <${TrafficState} s=${s} st=${st} />
+    <small class="muted">Выбор сохраняется сразу. VLESS ↔ TUN применяется на ходу, а переход с «Напрямую» на VLESS или TUN и обратно — после перезапуска сервера.</small>
   </div>`;
 }
 

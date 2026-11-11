@@ -52,6 +52,7 @@ async function view(cfg) {
   return {
     ...rest,
     discord: discord?.on ? { on: true } : null,
+    proxy: cfg.proxy?.on ? { ...cfg.proxy, mode: P.modeOf(cfg) } : cfg.proxy,
     motd: { follow: mo.follow, l1: cfg.motd?.l1 || '', l2: mo.l2 },
     players: L?.running && L.max != null ? L.count : null,
     maxPlayers: L?.running ? L.max : null,
@@ -128,9 +129,11 @@ function sanitize(b, cur = {}) {
   }
   if ('javaTag' in b) { if (!JAVA.includes(b.javaTag)) throw bad('Недопустимая версия Java'); o.javaTag = b.javaTag; }
   if ('proxy' in b) {
-    const on = !!(b.proxy || {}).on;
+    const on = !!(b.proxy || {}).on, m = (b.proxy || {}).mode;
     if (on && !P.active().node) throw bad('Сначала выберите узел VLESS в Настройках');
-    o.proxy = { on };
+    if (m !== undefined && !P.MODES.includes(m)) throw bad('Режим: proxy или tun');
+    const mode = m || cur.proxy?.mode;
+    o.proxy = mode ? { on, mode } : { on };
   }
   if ('loaderVersion' in b) {
     if (!/^[A-Za-z0-9._-]{0,40}$/.test(String(b.loaderVersion))) throw bad('Недопустимая версия загрузчика');
@@ -514,8 +517,29 @@ export function createRouter() {
     tun.syncAll().catch(e => console.error('tun', e.message));
     res.json(proxyState());
   }));
-  r.get('/servers/:id/proxy', h(async (req, res) => {
-    res.json({ on: !!req.cfg.proxy?.on, active: { ...P.active(), name: P.activeName() }, tun: P.tunWanted(req.cfg) ? tun.state.get(req.cfg.id) || { pending: true } : null });
+  /** Трафик сервера: напрямую, через VLESS (прокси) или TUN. restart: запущенный контейнер ещё со старым выбором
+      «напрямую / через VLESS» (адрес прокси попадает в окружение при запуске), смена прокси ↔ TUN применяется на лету. */
+  const serverProxy = async cfg => {
+    const info = await dk.inspect(cfg.id).catch(() => null);
+    const running = !!info?.State?.Running;
+    const envOn = running && (info.Config?.Env || []).some(e => e.startsWith('PROXY='));
+    const on = !!cfg.proxy?.on;
+    return {
+      on, mode: P.modeOf(cfg), own: P.MODES.includes(cfg.proxy?.mode),
+      active: { ...P.active(), name: P.activeName() },
+      // в TUN перехват включается на ходу, адрес прокси в окружении тогда не важен
+      restart: running && !!P.active().node && envOn !== on && !(on && P.modeOf(cfg) === 'tun'),
+      tun: P.tunWanted(cfg) ? tun.state.get(cfg.id) || { pending: true } : null,
+    };
+  };
+  r.get('/servers/:id/proxy', h(async (req, res) => res.json(await serverProxy(req.cfg))));
+  r.put('/servers/:id/proxy', h(async (req, res) => {
+    const { proxy } = sanitize({ proxy: req.body || {} }, req.cfg);
+    req.cfg.proxy = proxy;
+    store.save();
+    tun.state.delete(req.cfg.id);
+    tun.sync(req.cfg).catch(e => console.error('tun', e.message));   // спутник TUN поднимается в фоне, страница опрашивает состояние
+    res.json(await serverProxy(req.cfg));
   }));
   r.post('/proxy/test', h(async (req, res) => {
     const node = String(req.body?.node || '');
@@ -694,6 +718,7 @@ export function createRouter() {
     Object.assign(req.cfg, upd);
     store.save();
     if ('domain' in upd) dk.syncRouter().catch(e => console.error(e));
+    if ('proxy' in upd) tun.sync(req.cfg).catch(e => console.error('tun', e.message));
     res.json(await view(req.cfg));
   }));
 

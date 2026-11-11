@@ -741,3 +741,12 @@ a.btn { text-decoration: none; }
 .upmsg { font-size: 13.5px; overflow-wrap: anywhere; }
 .bottomnav .nav { position: relative; }
 .navdot { position: absolute; top: 6px; left: calc(50% + 6px); width: 9px; height: 9px; border-radius: 50%; background: var(--accent); box-shadow: 0 0 0 2px var(--panel); animation: upglow 2.2s ease-in-out infinite; }
+
+/* Трафик сервера над консолью */
+:root .card.trafficbar { gap: 10px; margin-bottom: 12px; padding: 10px 14px; }
+.trafficbar .tlabel { display: inline-flex; align-items: center; gap: 6px; font-weight: 650; color: var(--muted); font-size: 13px; }
+.trafficbar .small { font-size: 13px; white-space: nowrap; }
+.trafficbar small.trunc { min-width: 120px; }
+.seg.traffic button.on:nth-child(2) { color: var(--info); }
+.seg.traffic button.on:nth-child(3) { color: var(--accent, var(--info)); }
+.banner.trafficwarn { display: flex; align-items: center; gap: 12px; flex-wrap: wrap; }

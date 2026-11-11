@@ -1,7 +1,7 @@
 import { html, rawHtml, useState, useEffect, useRef, t, askConfirm, askText, Icon, Btn, Field, Toggle, Modal, Spark, Meter, Avatar, toast, StateBadge, TYPE_NAMES, TYPE_COLOR, fmtBytes, addrOf, uptime, ago, copyText, plural, appState, isRemote, useUi, locale } from './ui.js';
 import { api, getVersions } from './api.js';
 import { ModpackSearch } from './create.js';
-import { ServerProxy } from './proxy.js';
+import { ServerProxy, TrafficBar } from './proxy.js';
 import { CoverCard, CoverEditor, coverUrl } from './cover.js';
 import { McEditor, MotdPreview, FmtText, ColorRow, ServerName } from './mcfmt.js';
 import { escape as mcEsc, strip as mcStrip } from './mc.js';
@@ -132,7 +132,7 @@ export function ServerPage({ id, tab }) {
           <span class="chip tc">${TYPE_NAMES[s.type]}${s.type !== 'AUTO_CURSEFORGE' ? ' ' + s.version : ''}</span>
           ${s.type === 'AUTO_CURSEFORGE' && s.cfSlug && html`<span class="chip">${s.cfSlug}</span>`}
           ${isRemote(s) && html`<span class="chip" title="Сервер работает на ноде"><${Icon} n="server" size=${12} />${s.node.name}</span>`}
-          ${s.proxy?.on && html`<span class="chip" title="Трафик идёт через VLESS" style="color:var(--info)"><${Icon} n="shield" size=${12} />VLESS</span>`}
+          ${s.proxy?.on && html`<span class="chip" title=${s.proxy.mode === 'tun' ? 'Весь трафик сервера идёт через TUN' : 'Трафик идёт через VLESS'} style="color:var(--info)"><${Icon} n=${s.proxy.mode === 'tun' ? 'layers' : 'shield'} size=${12} />${s.proxy.mode === 'tun' ? 'TUN' : 'VLESS'}</span>`}
           <span class="addr" title="Скопировать" onClick=${() => copyText(addrOf(s))}>${addrOf(s)}<${Icon} n="copy" size=${13} /></span>
           ${s.state === 'running' && html`<span>работает ${uptime(s.startedAt)}</span>`}
           ${s.players != null && html`<span>игроков: <b style="color:var(--text)">${s.players}${s.maxPlayers ? ' / ' + s.maxPlayers : ''}</b></span>`}</div></div>
@@ -365,6 +365,7 @@ function ConsoleTab({ s }) {
     a.click();
   };
   return html`<div>
+    <${TrafficBar} s=${s} />
     <div class="cwrap">
       <div class="cbar"><div class="dots"><i></i><i></i><i></i></div><span class="mono grow">${s.name} · console</span>
         <input placeholder="Фильтр" value=${filter} onInput=${e => setFilter(e.target.value)} />
@@ -918,7 +919,7 @@ function ScheduleTab({ s }) {
 
 /* ---------------- Сеть ---------------- */
 function NetworkTab({ s, reload }) {
-  const { d, set, dirty, save } = useDraft(s, reload, ['port', 'extraPorts', 'domain', 'proxy']);
+  const { d, set, dirty, save } = useDraft(s, reload, ['port', 'extraPorts', 'domain']);
   if (!d) return null;
   const remote = isRemote(s);
   const host = remote ? s.node.host : appState.settings.publicHost || '<ваш внешний IP>';
@@ -945,8 +946,8 @@ function NetworkTab({ s, reload }) {
         <small class="muted">Если внешний IP меняется, используйте DDNS. Подключения по домену принимает маршрутизатор mc-router, он сам направляет игрока на нужный сервер.</small></div>`
       : html`<small class="muted">Без домена игроки заходят по адресу <span class="mono">${host}:${d.port}</span>, для этого нужно пробросить порт ${d.port} на роутере.</small>`}
     </div>
-    <${ServerProxy} s=${s} value=${d.proxy} onChange=${v => set({ proxy: v })} />
-    <div class="row"><${Btn} kind="primary" icon="save" onClick=${save} disabled=${!dirty}>Сохранить</${Btn}></div>
+    <div class="row"><${Btn} kind="primary" icon="save" onClick=${save} disabled=${!dirty}>Сохранить порты и домен</${Btn}></div>
+    <${ServerProxy} s=${s} />
   </div>`;
 }
 
