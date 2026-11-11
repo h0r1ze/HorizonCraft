@@ -95,6 +95,7 @@ Example: `PANEL_PORT=9090 ADMIN_PASSWORD=MySecret123 ./install.sh`
 | 💬 **Discord** | A status board with the server status, players, version and address keeps itself up to date in your channel. Through a webhook or your own bot that the panel runs: it is online with a 'Playing …' status and writes only to the chosen channels. The message look, the name and the avatar are set from the panel with a preview. Optional notifications for starts, stops and player joins |
 | 👥 **Player groups** | ADMIN, MODERATOR, VIP, FLY and HORIZON: ready-made permission sets and a coloured name tag. Groups can be renamed, permissions are set with checkboxes, and you can create your own groups in a couple of clicks. The permission plugins are installed with one button and a group is picked in the player form |
 | 🧹 **World clearing** | The 'Clear the Overworld', 'Clear the Nether' and 'Clear the End' buttons: with a backup before deleting, and the server stops and starts again by itself |
+| 🆙 **Panel updates** | The version is shown in the menu, a new version on GitHub is highlighted, one-click update with rollback on failure |
 | 🌐 **Two languages** | Russian and English interface, plus a separate language for Discord messages |
 | 📋 **Templates** | Save a configured server (settings, mods, configs) as a template and create new servers from it on any machine |
 | 🌐 **Network & domains** | Many servers behind a single port 25565 by domain (via `mc-router`), extra ports for voice chat or Dynmap |
@@ -469,11 +470,34 @@ Installation settings live in `.env` next to `docker-compose.yml`. Apply changes
 
 To search and install CurseForge modpacks, get a free API key at [console.curseforge.com](https://console.curseforge.com/) and paste it under **Settings → Servers and nodes → CurseForge**.
 
+## 🆙 Panel updates
+
+The panel version is always shown in the side menu under the name. Every 6 hours the panel checks GitHub, and when a new version is out, the label turns into a noticeable **Update · vX** button. The overview shows a banner, and on a phone a dot appears on the Settings button.
+
+<table>
+  <tr>
+    <td width="50%"><img src="docs/en/update-card.png" alt="Panel update card"><br><sub><b>Settings → Security.</b> The installed version, the version on GitHub and the latest change</sub></td>
+    <td width="50%"><img src="docs/en/update-banner.png" alt="Update label and banner"><br><sub><b>Visible at once.</b> A highlighted label in the menu and a banner on the overview</sub></td>
+  </tr>
+</table>
+
+The **Update to vX** button in **Settings → Security** updates the whole panel:
+
+1. The new version's code is downloaded from GitHub.
+2. The panel is rebuilt while the old version keeps running.
+3. The panel container is recreated with the new version (a pause of a few seconds), and the page reloads by itself.
+
+- If the new version does not build or start, the panel returns to the previous one and the card shows the reason.
+- Minecraft servers keep running during the update, players notice nothing.
+- The code next to `docker-compose.yml` is updated too, so `./update.sh` and `docker compose` keep building the same version. The previous code is saved in `DATA_DIR/update`.
+- **Check now** asks GitHub right away. If GitHub is blocked by your provider and the panel's CurseForge requests go via VLESS, the check and the download use the same node.
+- Updating from the panel works in a regular Docker installation. Outside Docker, use `./update.sh`.
+
 ## 🔄 Maintenance
 
 | Task | Command |
 |---|---|
-| Update the panel | `./update.sh` |
+| Update the panel | with the button in **Settings → Security** (see [Panel updates](#-panel-updates)) or `./update.sh` |
 | Forgot the password | `./reset-password.sh` (or `./reset-password.sh NewPassword`) |
 | View panel logs | `docker compose logs -f panel` |
 | Stop the panel | `docker compose stop panel` |

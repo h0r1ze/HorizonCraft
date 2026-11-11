@@ -76,7 +76,9 @@ export async function update({ docker, self, dataDir, tarball, sha, from = '', p
   if (!r.ok) {
     const [repo, tag] = splitRef(image);
     await docker.getImage(oldImage).tag({ repo, tag }).catch(e => log('прежний образ не возвращён: ' + e.message));
-    clean(); return fail('Новая версия не запустилась, панель возвращена к прежней. ' + r.error);
+    // сообщения смены порта про «новый порт» здесь только запутают: порт тот же, не поднялась сама версия
+    const why = /на новом порту/.test(r.error || '') ? '' : ' ' + r.error;
+    clean(); return fail('Новая версия не запустилась, панель возвращена к прежней.' + why);
   }
 
   // 4. код рядом с docker-compose.yml: чтобы ./update.sh и docker compose собирали ту же версию
