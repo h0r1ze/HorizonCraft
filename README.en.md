@@ -83,7 +83,7 @@ Example: `PANEL_PORT=9090 ADMIN_PASSWORD=MySecret123 ./install.sh`
 | | |
 |---|---|
 | 🚀 **Server creation** | Paper, Vanilla, Purpur, Fabric, Forge, NeoForge and one-click CurseForge modpacks. The Java version is picked automatically |
-| 🖥️ **Console** | Live server log and command input right in the browser |
+| 🖥️ **Console** | Live server log and command input right in the browser. Mod noise hides with one button, real errors are always shown |
 | 👥 **Players & chat** | Online list, kick, ban, private messages, whitelist, chat, coloured name prefixes/suffixes. A separate "Could not join" column: who was stopped by the whitelist, a ban or the licence check, with actions right from it |
 | 🧩 **Mods** | Search and install from CurseForge and Modrinth |
 | 💾 **Backups** | Manual and scheduled backups, retention limit, one-click restore |
@@ -92,10 +92,12 @@ Example: `PANEL_PORT=9090 ADMIN_PASSWORD=MySecret123 ./install.sh`
 | 🚚 **Move between machines** | Move a whole server (world, mods, settings) to another machine or node in one click, even a running one: the panel stops it and starts it at the new place |
 | 🔄 **Updates** | New Minecraft versions and fresh versions of plugins and mods: files are recognised by hash on Modrinth and updated on selection, with a backup beforehand |
 | 🗺️ **World map** | A live Dynmap map in one click: plugin, port and link are set up for you |
-| 💬 **Discord** | A status board with the server status, players, version and address keeps itself up to date in your channel. Through a webhook or your own bot that the panel runs: it is online with a 'Playing …' status and writes only to the chosen channels. The message look, the name and the avatar are set from the panel with a preview. Optional notifications for starts, stops and player joins |
+| 💬 **Discord** | A status board with the server status, players, version and address keeps itself up to date in your channel. Through a webhook or your own bot that the panel runs: it is online with a 'Playing …' status and writes only to the chosen channels. The message look, the name and the avatar are set from the panel with a preview. Optional notifications for starts, stops and player joins. Without a webhook or bot you can copy the board and paste it into a channel yourself |
 | 👥 **Player groups** | ADMIN, MODERATOR, VIP, FLY and HORIZON: ready-made permission sets and a coloured name tag. Groups can be renamed, permissions are set with checkboxes, and you can create your own groups in a couple of clicks. The permission plugins are installed with one button and a group is picked in the player form |
 | 🧹 **World clearing** | The 'Clear the Overworld', 'Clear the Nether' and 'Clear the End' buttons: with a backup before deleting, and the server stops and starts again by itself |
 | 🆙 **Panel updates** | The version is shown in the menu, a new version on GitHub is highlighted, one-click update with rollback on failure |
+| 🧽 **Disk cleanup** | One button finds and removes leftovers of deleted servers, unused Java images, crash reports and unfinished uploads |
+| 🔐 **Security** | Brute-force protection, sign out everywhere, strict browser headers, servers in containers without extra privileges |
 | 🌐 **Two languages** | Russian and English interface, plus a separate language for Discord messages |
 | 📋 **Templates** | Save a configured server (settings, mods, configs) as a template and create new servers from it on any machine |
 | 🌐 **Network & domains** | Many servers behind a single port 25565 by domain (via `mc-router`), extra ports for voice chat or Dynmap |
@@ -110,7 +112,7 @@ Example: `PANEL_PORT=9090 ADMIN_PASSWORD=MySecret123 ./install.sh`
 <table>
   <tr>
     <td width="50%"><img src="docs/en/server-overview.png" alt="Server overview"><br><sub><b>Server overview.</b> Players, CPU and memory over 30 minutes, quick actions</sub></td>
-    <td width="50%"><img src="docs/en/console.png" alt="Console"><br><sub><b>Console.</b> Live log, commands and the Direct / VLESS / TUN traffic switch</sub></td>
+    <td width="50%"><img src="docs/en/console.png" alt="Console"><br><sub><b>Console.</b> Live log, commands, the Direct / VLESS / TUN traffic switch and the Noise hidden button</sub></td>
   </tr>
   <tr>
     <td width="50%"><img src="docs/en/new-server.png" alt="Create a server"><br><sub><b>New server.</b> Paper, Vanilla, Purpur, Fabric, Forge, NeoForge and CurseForge packs</sub></td>
@@ -319,6 +321,10 @@ Files that are not on Modrinth (built by hand or taken from other sites) are lis
 
 The **Map** tab (Paper and Purpur servers) enables [Dynmap](https://modrinth.com/plugin/dynmap) in one click: the panel adds the plugin to the Modrinth auto-install list, picks a free port for the map page (from 8123–8199) and shows a link and a preview. The plugin is downloaded on the next server start. **Render** starts a full render of the world. To share the map with friends, forward the shown port on your router.
 
+## 🖥️ Console: mod noise
+
+Big modpacks print hundreds of messages on every start, like `Parsing error loading recipe`, `Couldn't parse element loot_tables`, `Incorrect key … was corrected`, `Lithium Class Analysis Error`. They do not affect the game but clutter the console. The **Noise hidden** button in the console header hides them together with their stack traces (they stay in the log file); clicking again shows everything. Startup, player joins and real crashes are always shown. Mod download retries after a timeout (`ReadTimeoutException`) are shown in yellow, and the number of retries appears above the console.
+
 ## 🔀 VLESS: proxy and TUN
 
 If installer sites, CurseForge, Mojang or Discord are blocked where you live, the panel sends traffic through your VLESS server. The node and the default mode are chosen **once** in **Settings → Network → VLESS and proxy**. After that every server has a **Direct / VLESS / TUN** switch right above the console and on **Network & domain → Server traffic**, while the panel's CurseForge requests and the Discord tab have **Direct / Via VLESS**.
@@ -502,10 +508,6 @@ The **Update to vX** button in **Settings → Security** updates the whole panel
 - The code next to `docker-compose.yml` is updated too, so `./update.sh` and `docker compose` keep building the same version. The previous code is saved in `DATA_DIR/update`.
 - **Check now** asks GitHub right away. If GitHub is blocked by your provider and the panel's CurseForge requests go via VLESS, the check and the download use the same node.
 - Updating from the panel works in a regular Docker installation. Outside Docker, use `./update.sh`.
-
-### Console: mod noise
-
-Big modpacks print hundreds of messages on every start, like `Parsing error loading recipe`, `Couldn't parse element loot_tables`, `Incorrect key … was corrected`, `Lithium Class Analysis Error`. They do not affect the game but clutter the console. The **Noise hidden** button in the console header hides them together with their stack traces (they stay in the log file); clicking again shows everything. Startup, player joins and real crashes are always shown. Mod download retries after a timeout (`ReadTimeoutException`) are shown in yellow, and the number of retries appears above the console.
 
 ## 🧽 Disk cleanup
 
