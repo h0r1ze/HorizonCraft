@@ -333,4 +333,6 @@ export default {
   "Копия кода панели до обновления": "Panel code copy before an update",
   "Остаток неудачного обновления": "Leftover of a failed update",
   "сейчас ни одному серверу не нужен, при необходимости скачается снова": "no server needs it now; it will be downloaded again if needed",
+  "Сервер загрузок CurseForge отвечает медленно, повторных попыток:": "The CurseForge download server is responding slowly, retries:",
+  "Это не ошибка: файл скачивается со следующей попытки, установка продолжается. Если повторов очень много, переключите трафик сервера на VLESS выше.": "This is not an error: the file is downloaded on the next attempt and the installation continues. If there are very many retries, switch the server traffic to VLESS above.",
 };

@@ -340,7 +340,14 @@ export async function tailLog(id, lines = 80) {
   } catch { return ''; }
 }
 export async function remove(id) {
-  if (await inspect(id)) await docker.getContainer(cname(id)).remove({ force: true });
+  if (!(await inspect(id))) return;
+  try { await docker.getContainer(cname(id)).remove({ force: true }); }
+  catch (e) {
+    // повторное нажатие «Удалить», пока Docker ещё удаляет контейнер: ждём, пока он исчезнет
+    if (e.statusCode === 404) return;
+    if (e.statusCode !== 409) throw e;
+    for (let i = 0; i < 30 && (await inspect(id)); i++) await new Promise(r => setTimeout(r, 500));
+  }
 }
 
 export async function exec(id, cmd) {

@@ -307,6 +307,7 @@ function ConsoleTab({ s }) {
   const [input, setInput] = useState('');
   const [filter, setFilter] = useState('');
   const [atBottom, setAtBottom] = useState(true);
+  const [retries, setRetries] = useState(0);
   const box = useRef(null), ws = useRef(null), stick = useRef(true), force = useRef(0);
   const hist = useRef({ list: [], i: -1 });
   const push = (text, cls = '') => setLines(l => {
@@ -318,10 +319,16 @@ function ConsoleTab({ s }) {
     const connect = () => {
       const w = new WebSocket((location.protocol === 'https:' ? 'wss://' : 'ws://') + location.host + `/ws/servers/${s.id}/console`);
       ws.current = w;
-      w.onopen = () => setLines([]);
+      w.onopen = () => { setLines([]); setRetries(0); };
       w.onmessage = e => {
         const m = JSON.parse(e.data);
-        if (m.type === 'log') push(m.data, /\bERROR\b|Exception/.test(m.data) ? 'error' : /\bWARN\b/.test(m.data) ? 'warn' : '');
+        if (m.type === 'log') {
+          // повторная загрузка файла сборки после тайм-аута CDN: это предупреждение, а не ошибка установки
+          const retry = /Retry #\d+ download|ReadTimeoutException|The connection observed an error/.test(m.data);
+          const n = (m.data.match(/Retry #\d+ download/g) || []).length;
+          if (n) setRetries(r => r + n);
+          push(m.data, retry ? 'warn' : /\bERROR\b|Exception/.test(m.data) ? 'error' : /\bWARN\b/.test(m.data) ? 'warn' : '');
+        }
         else if (m.type === 'resp') push(m.data, 'resp');
         else if (m.type === 'info') push(m.data, 'dim');
       };
@@ -366,6 +373,7 @@ function ConsoleTab({ s }) {
   };
   return html`<div>
     <${TrafficBar} s=${s} />
+    ${retries > 0 && html`<div class="banner info" id="retry-note">Сервер загрузок CurseForge отвечает медленно, повторных попыток: <b>${retries}</b>. Это не ошибка: файл скачивается со следующей попытки, установка продолжается. Если повторов очень много, переключите трафик сервера на VLESS выше.</div>`}
     <div class="cwrap">
       <div class="cbar"><div class="dots"><i></i><i></i><i></i></div><span class="mono grow">${s.name} · console</span>
         <input placeholder="Фильтр" value=${filter} onInput=${e => setFilter(e.target.value)} />
