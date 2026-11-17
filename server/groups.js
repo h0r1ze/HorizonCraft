@@ -178,7 +178,7 @@ const files = cfg => { try { return fs.readdirSync(pluginsDir(cfg)); } catch { r
 /* Сервер Minecraft работает не от root (uid 1000). Папку plugins, созданную панелью от root, он не может дополнить:
    плагины не создают свои папки (LuckPerms: «AccessDeniedException», Essentials: «node is null») и отключаются. */
 const OWNER = 1000;
-const own = p => { try { fs.chownSync(p, OWNER, OWNER); } catch {} };
+const own = p => { try { fs.lchownSync(p, OWNER, OWNER); } catch {} };
 function ownTree(dir) {
   own(dir);
   let list = [];
@@ -213,6 +213,7 @@ export async function install(cfg, keys = CORE) {
     if (!/^[\w.+() \[\]-]{1,200}\.jar$/.test(name)) throw bad('Недопустимое имя файла плагина');
     if (new URL(f.url).hostname !== CDN_HOST) throw bad('Недопустимый адрес загрузки');
     const dest = path.join(pluginsDir(cfg), name), tmp = dest + '.hcdl';
+    dk.guard(cfg.id, tmp); dk.guard(cfg.id, dest);
     await download(f.url, tmp, f.hashes?.sha1, f.size);
     fs.renameSync(tmp, dest);
     own(dest);
@@ -396,6 +397,7 @@ export function applyChatFormat(cfg, on) {
   const ops = patchOpsColor(out, on ? 'none' : '4');
   if (ops && (on || ops.current === 'none') && ops.changed) { out = ops.text; changed = true; }
   if (!changed) return 'same';
+  dk.guard(cfg.id, file);
   fs.writeFileSync(file, out);
   return 'changed';
 }
@@ -440,6 +442,7 @@ export async function applyLogNotify(cfg, show, live = true) {
   const r = patchLogNotify(text, show);
   if (!r) return 'pending';
   if (!r.changed) return 'same';
+  dk.guard(cfg.id, file);
   fs.writeFileSync(file, r.text);
   if (live) await lp(cfg, 'reloadconfig').catch(() => {});
   return 'changed';

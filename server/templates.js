@@ -12,7 +12,7 @@ import * as transfer from './transfer.js';
 
 const bad = (m, s = 400) => Object.assign(new Error(m), { status: s });
 const DIR = path.join(dk.DATA_DIR, 'templates');
-const KEYS = ['type', 'version', 'memory', 'javaTag', 'loaderVersion', 'cfSlug', 'cfFileId', 'cfMods', 'modrinthMods', 'extraPorts', 'props', 'customEnv', 'schedule', 'motd'];
+const KEYS = ['type', 'version', 'memory', 'javaTag', 'loaderVersion', 'cfSlug', 'cfMc', 'cfFileId', 'cfMods', 'modrinthMods', 'extraPorts', 'props', 'customEnv', 'schedule', 'motd'];
 const FILE_DIRS = ['mods', 'plugins', 'config', 'defaultconfigs', 'kubejs', 'scripts'];
 const MAX_FILES = 2 * 1024 ** 3;
 

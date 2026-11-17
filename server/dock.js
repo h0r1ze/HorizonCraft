@@ -10,6 +10,7 @@ import * as P from './proxy.js';
 import crypto from 'crypto';
 import * as store from './store.js';
 import sharp from 'sharp';
+import * as sec from './security.js';
 
 sharp.cache(false); // картинки на диске меняются, пока панель работает: кэш sharp по пути файла отдавал бы старые
 import * as M from '../public/mc.js';
@@ -41,6 +42,14 @@ export async function ensureNetwork() {
    мост socat, слушающий только внутренний адрес сети Docker. */
 const RELAY = `${P.NAME_PREFIX}-proxy-relay`;
 const XRAY = P.XRAY_HOST;
+/* Ограничения для служебных контейнеров (xray, маршрутизатор, ретранслятор): им не нужны никакие привилегии ядра,
+   и процесс внутри не может получить новые через setuid-программы. */
+export const LOCKED = { CapDrop: ['ALL'], SecurityOpt: ['no-new-privileges:true'] };
+/* Сервер Minecraft: образ при запуске от root выставляет владельца папки и переходит на обычного пользователя, поэтому
+   убираем только то, что ему точно не нужно (сырые сокеты, создание устройств, chroot), и запрещаем повышение привилегий.
+   Ограничение числа процессов останавливает «форк-бомбу» из вредоносного плагина, не мешая Java с её потоками. */
+export const MC_LIMITS = { CapDrop: ['NET_RAW', 'MKNOD', 'SYS_CHROOT', 'SETFCAP', 'AUDIT_WRITE'], SecurityOpt: ['no-new-privileges:true'], PidsLimit: 8192 };
+
 export async function syncRelay() {
   const p = P.externalAddr();
   let existing = null;
@@ -57,7 +66,7 @@ export async function syncRelay() {
     name: RELAY, Image: 'alpine/socat:latest',
     Cmd: [`TCP-LISTEN:${p.port},bind=${gateway},fork,reuseaddr`, `TCP:127.0.0.1:${p.port}`],
     Labels: { mcpanel: 'relay', 'mcpanel.spec': spec },
-    HostConfig: { NetworkMode: 'host', RestartPolicy: { Name: 'unless-stopped' } },
+    HostConfig: { NetworkMode: 'host', RestartPolicy: { Name: 'unless-stopped' }, ...LOCKED },
   });
   await c.start();
 }
@@ -118,16 +127,37 @@ export async function ensureImage(ref) {
   }));
 }
 
-export function javaTag(cfg) {
-  if (cfg.javaTag && cfg.javaTag !== 'auto') return cfg.javaTag;
-  const v = cfg.version;
-  if (!v || v === 'LATEST' || v === 'SNAPSHOT' || cfg.type === 'AUTO_CURSEFORGE') return 'latest';
-  const m = /^1\.(\d+)(?:\.(\d+))?/.exec(v);
-  if (!m) return 'latest';
+/* Версия Minecraft у сборки CurseForge. До установки её знает только каталог CurseForge (cfMc, запоминается при выборе
+   сборки), после установки образ записывает её в .install-curseforge.env в папке сервера: этот файл точнее. */
+const packCache = new Map();   // id -> { m: mtime, v }
+export function packVersion(cfg) {
+  if (cfg.type !== 'AUTO_CURSEFORGE') return '';
+  const file = path.join(serverDir(cfg.id), '.install-curseforge.env');
+  try {
+    const m = fs.lstatSync(file).mtimeMs, c = packCache.get(cfg.id);
+    if (c && c.m === m) return c.v || cfg.cfMc || '';
+    const x = /^VERSION="?([0-9][0-9A-Za-z.\-]{0,20})"?\s*$/m.exec(fs.readFileSync(file, 'utf8').slice(0, 4000));
+    packCache.set(cfg.id, { m, v: x ? x[1] : '' });
+    if (x) return x[1];
+  } catch {}
+  return cfg.cfMc || '';
+}
+/** Образ с подходящей Java для версии Minecraft. Слишком новая Java ломает моды со встроенным машинным кодом
+    (например, spark на 1.20.1 роняет Java 25), слишком старая не запускает игру. */
+export function javaFor(v) {
+  const m = /^1\.(\d+)(?:\.(\d+))?/.exec(String(v || ''));
+  if (!m) return 'latest';                                  // новые версии (26.x) и снимки
   const minor = +m[1], patch = +(m[2] || 0);
   if (minor < 17) return 'java8';
   if (minor < 20 || (minor === 20 && patch < 5)) return 'java17';
-  return 'latest';
+  return 'java21';                                          // 1.20.5–1.21.x
+}
+export function javaTag(cfg) {
+  if (cfg.javaTag && cfg.javaTag !== 'auto') return cfg.javaTag;
+  if (cfg.type === 'AUTO_CURSEFORGE') { const pv = packVersion(cfg); return pv ? javaFor(pv) : 'latest'; }
+  const v = cfg.version;
+  if (!v || v === 'LATEST' || v === 'SNAPSHOT') return 'latest';
+  return javaFor(v);
 }
 
 export function parseExtra(str = '') {
@@ -152,6 +182,9 @@ export function motdOf(cfg) {
 
 /* Значок сервера в списке игры: server-icon.png 64x64 из логотипа панели. */
 export const logoPath = id => path.join(DATA_DIR, 'covers', `${id}-logo.webp`);
+/** Файл в папке сервера, в который панель собирается писать сама: не ссылка и не за пределами папки (см. security.js). */
+export const guard = (id, file) => sec.guardWrite(serverDir(id), file);
+
 export async function syncIcon(cfg) {
   const dst = path.join(serverDir(cfg.id), 'server-icon.png');
   try {
@@ -160,8 +193,9 @@ export async function syncIcon(cfg) {
       // логотипа панель продолжала бы записывать в server-icon.png старую картинку.
       const png = await sharp(fs.readFileSync(logoPath(cfg.id))).resize(64, 64, { fit: 'cover' }).png({ compressionLevel: 9 }).toBuffer();
       fs.mkdirSync(serverDir(cfg.id), { recursive: true });
+      sec.guardWrite(serverDir(cfg.id), dst);
       fs.writeFileSync(dst, png);
-      try { fs.chownSync(dst, 1000, 1000); } catch {}
+      sec.lchown(dst);
       if (!cfg.iconSynced) { cfg.iconSynced = true; store.save(); }
     } else if (cfg.iconSynced) {
       fs.rmSync(dst, { force: true });
@@ -256,7 +290,7 @@ async function create(cfg) {
     StopTimeout: 90,
     HostConfig: {
       Binds: [`${dir}:/data`], PortBindings: bindings,
-      RestartPolicy: { Name: 'unless-stopped' }, NetworkMode: NET,
+      RestartPolicy: { Name: 'unless-stopped' }, NetworkMode: NET, ...MC_LIMITS,
     },
   });
 }
@@ -278,9 +312,32 @@ export async function stop(id) {
   const info = await inspect(id);
   if (info?.State.Running || info?.State.Restarting) await docker.getContainer(cname(id)).stop({ t: 90 });
 }
+/* Принудительная остановка. Должна сработать в любом состоянии: и когда сервер завис, и когда он падает при запуске,
+   а Docker снова и снова его перезапускает (в паузе между перезапусками обычный kill ничего не делает). */
+const pause = ms => new Promise(r => setTimeout(r, ms));
+const alive = async id => { const i = await inspect(id); return !!i && (i.State.Running || i.State.Restarting); };
 export async function kill(id) {
   const info = await inspect(id);
-  if (info?.State.Running) await docker.getContainer(cname(id)).kill();
+  if (!info) return;
+  const c = docker.getContainer(cname(id));
+  if (info.State.Restarting) await c.stop({ t: 0 }).catch(() => {});
+  else if (info.State.Running) await c.kill().catch(() => {});
+  for (let i = 0; i < 6; i++) { if (!(await alive(id))) return; await pause(500); }
+  // не помогло: на время выключаем автоперезапуск, останавливаем и возвращаем правило обратно
+  const policy = info.HostConfig?.RestartPolicy?.Name || 'unless-stopped';
+  await c.update({ RestartPolicy: { Name: 'no' } }).catch(() => {});
+  await c.kill().catch(() => {});
+  await c.stop({ t: 0 }).catch(() => {});
+  for (let i = 0; i < 10 && (await alive(id)); i++) await pause(500);
+  await c.update({ RestartPolicy: { Name: policy } }).catch(() => {});
+  if (await alive(id)) throw new Error('Не удалось остановить контейнер сервера');
+}
+/** Последние строки вывода контейнера (без служебных байтов Docker). */
+export async function tailLog(id, lines = 80) {
+  try {
+    const buf = await docker.getContainer(cname(id)).logs({ stdout: true, stderr: true, tail: lines });
+    return Buffer.from(buf).toString('utf8').replace(/[ --]/g, '');
+  } catch { return ''; }
 }
 export async function remove(id) {
   if (await inspect(id)) await docker.getContainer(cname(id)).remove({ force: true });
@@ -313,13 +370,20 @@ export function rconLine(id, line) {
   const first = cmd.split(/\s+/)[0];
   return VANILLA_CMDS.has(first.toLowerCase()) ? 'minecraft:' + cmd : cmd;
 }
+/** Строка команды передаётся программе rcon-cli аргументами: начало с «-» она приняла бы за свой параметр. */
+function rconArgs(id, line) {
+  const args = rconLine(id, line).split(/\s+/).filter(Boolean);
+  if (!args.length) throw new Error('Пустая команда');
+  if (args[0].startsWith('-')) throw Object.assign(new Error('Команда не может начинаться с «-»'), { status: 400 });
+  return ['rcon-cli', ...args];
+}
 export async function rcon(id, line) {
-  const out = await exec(id, ['rcon-cli', ...rconLine(id, line).split(/\s+/)]);
+  const out = await exec(id, rconArgs(id, line));
   return out.replace(/\x1b\[[0-9;]*m/g, '').replace(/§./g, '').trim();
 }
 /** Ответ RCON с цветовыми кодами (нужен там, где цвет несёт смысл, например список плагинов). */
 export async function rconRaw(id, line) {
-  return (await exec(id, ['rcon-cli', ...rconLine(id, line).split(/\s+/)])).trim();
+  return (await exec(id, rconArgs(id, line))).trim();
 }
 
 /* Нагрузка на процессор: сколько ядер занято сервером и какая это доля от всех ядер хоста (как на плитке
@@ -368,7 +432,7 @@ export async function syncXray() {
     name: XRAY, Image: 'teddysun/xray:latest',
     Cmd: ['xray', 'run', '-config', '/etc/xray/config.json'],
     Labels: { mcpanel: 'xray', 'mcpanel.spec': hash },
-    HostConfig: { Binds: [`${XRAY_DIR}:/etc/xray:ro`], RestartPolicy: { Name: 'unless-stopped' }, NetworkMode: NET },
+    HostConfig: { Binds: [`${XRAY_DIR}:/etc/xray:ro`], RestartPolicy: { Name: 'unless-stopped' }, NetworkMode: NET, ...LOCKED },
   });
   await c.start();
 }
@@ -431,7 +495,7 @@ export async function syncRouter() {
     Labels: { mcpanel: 'router', 'mcpanel.spec': hash },
     HostConfig: {
       PortBindings: { '25565/tcp': [{ HostPort: '25565' }] },
-      RestartPolicy: { Name: 'unless-stopped' }, NetworkMode: NET,
+      RestartPolicy: { Name: 'unless-stopped' }, NetworkMode: NET, ...LOCKED,
     },
   });
   await c.start();

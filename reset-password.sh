@@ -25,8 +25,9 @@ export NEW_PASSWORD
 # Хеш пароля пишется в panel.json при остановленной панели (иначе она перезапишет файл из памяти).
 JS='const fs=require("fs"),b=require("bcryptjs"),f=process.env.DATA_DIR+"/panel.json";'
 JS+='let d={};try{d=JSON.parse(fs.readFileSync(f,"utf8"))}catch{}'
-JS+='d.user={hash:b.hashSync(process.env.NEW_PASSWORD,10)};'
-JS+='fs.writeFileSync(f+".tmp",JSON.stringify(d,null,2));fs.renameSync(f+".tmp",f);'
+# gen: номер поколения сессий. Увеличиваем, чтобы все прежние входы (в том числе украденные) перестали действовать.
+JS+='d.user={hash:b.hashSync(process.env.NEW_PASSWORD,12),gen:((d.user&&d.user.gen)||0)+1};'
+JS+='fs.writeFileSync(f+".tmp",JSON.stringify(d,null,2),{mode:0o600});fs.renameSync(f+".tmp",f);'
 
 echo "==> Остановка панели"
 "${DOCKER[@]}" compose stop panel >/dev/null

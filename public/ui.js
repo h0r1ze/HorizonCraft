@@ -1,4 +1,4 @@
-import { html as baseHtml, useState, useEffect, useRef } from '/vendor/htm-preact.js';
+import { html as baseHtml, render as baseRender, useState, useEffect, useRef } from '/vendor/htm-preact.js';
 import { trStrings, trVal, isEn, lang, locale, t, pluralOf, setLang, LANGS } from './i18n.js';
 export * from '/vendor/htm-preact.js';
 export { t, lang, isEn, locale, setLang, LANGS };
@@ -72,14 +72,28 @@ export const Field = ({ label, hint, children }) =>
 export const Toggle = ({ on, onChange, label }) =>
   html`<div class=${'toggle ' + (on ? 'on' : '')} onClick=${() => onChange(!on)}><i></i><span>${label}</span></div>`;
 
+/* Содержимое рисуется прямо в <body>, а не там, где стоит компонент. Окно с position: fixed иначе привязывается
+   к ближайшему предку с размытием фона или трансформацией (карточки при включённом фоне) и обрезается его рамкой. */
+export function Portal({ children }) {
+  const el = useRef(null);
+  if (!el.current) { el.current = document.createElement('div'); el.current.className = 'portal'; }
+  useEffect(() => {
+    const node = el.current;
+    document.body.appendChild(node);
+    return () => { baseRender(null, node); node.remove(); };
+  }, []);
+  useEffect(() => { baseRender(children, el.current); });
+  return null;
+}
+
 export function Modal({ title, onClose, children, footer, wide, narrow }) {
-  return html`<div class="overlay" onMouseDown=${e => e.target === e.currentTarget && onClose()}>
+  return html`<${Portal}><div class="overlay" onMouseDown=${e => e.target === e.currentTarget && onClose()}>
     <div class="modal" style=${wide ? 'width:min(1000px,100%)' : narrow ? 'width:min(460px,100%)' : ''}>
       <header><h2 class="grow">${title}</h2><${Btn} kind="ghost icon" icon="x" onClick=${onClose} /></header>
       <div class="body">${children}</div>
       ${footer && html`<footer>${footer}</footer>`}
     </div>
-  </div>`;
+  </div></${Portal}>`;
 }
 
 const STATE = { running: 'Работает', starting: 'Запускается', stopped: 'Остановлен', missing: 'Не запускался', unreachable: 'Нода недоступна' };

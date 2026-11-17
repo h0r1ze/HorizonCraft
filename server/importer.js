@@ -68,7 +68,7 @@ export async function inspect(file) {
 
   const top = [...new Set(names.map(n => n.split(/[\\/]/)[0]))].filter(n => n && n !== '__MACOSX');
   const singleRoot = top.length === 1 && names.some(n => n.startsWith(top[0] + '/')) ? top[0] : null;
-  return { kind, count: names.length, total, top, singleRoot };
+  return { kind, count: names.length, total, top, singleRoot, names };
 }
 
 export function checkSpace(total, where) {
@@ -82,7 +82,8 @@ export function checkSpace(total, where) {
   } catch (e) { if (/места/.test(e.message)) throw e; }
 }
 
-export async function chown(dir) { try { await exec('chown', ['-R', '1000:1000', dir]); } catch {} }
+// -h: у символических ссылок меняется владелец самой ссылки, а не файла, на который она указывает
+export async function chown(dir) { try { await exec('chown', ['-hR', '1000:1000', dir]); } catch {} }
 
 export async function extract(file, kind, target) {
   fs.mkdirSync(target, { recursive: true });

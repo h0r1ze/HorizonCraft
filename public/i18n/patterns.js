@@ -137,4 +137,8 @@ export default [
   [/^В архиве обновления нет (.+)$/, (t, a) => `The update archive has no ${a}`],
   [/^Не удалось запустить обновление: (.+)$/, (t, a) => `Could not start the update: ${a}`],
   [/^Новая версия не запустилась, панель возвращена к прежней\. (.+)$/s, (t, a) => `The new version did not start, the panel was returned to the previous one. ${t(a)}`],
+  // ---- безопасность и защита от бесконечного перезапуска
+  [/^Слишком много попыток\. Подождите (\d+) (с|мин)\.$/, (t, a, u) => `Too many attempts. Wait ${a} ${u === 'с' ? 's' : 'min'}.`],
+  [/^В папке сервера «(.+)» является символической ссылкой\. Распаковка поверх ссылок запрещена: удалите её и повторите\.$/, (t, a) => `"${a}" in the server folder is a symbolic link. Extracting over links is not allowed: delete it and try again.`],
+  [/^Сервер несколько раз подряд упал при запуске и остановлен, чтобы не перезапускаться бесконечно\. (.+)$/s, (t, a) => `The server crashed several times in a row on start and was stopped so it does not restart forever. ${t(a)}`],
 ];

@@ -6,6 +6,7 @@ import { fileURLToPath } from 'url';
 import { PassThrough } from 'stream';
 import { WebSocketServer } from 'ws';
 import bcrypt from 'bcryptjs';
+import * as sec from './security.js';
 import * as store from './store.js';
 import * as dk from './dock.js';
 import { createRouter, verify } from './routes.js';
@@ -27,14 +28,16 @@ const root = path.join(here, '..');
 store.load();
 migrateProxy();
 if (!store.get().user && process.env.ADMIN_PASSWORD) {
-  store.get().user = { hash: bcrypt.hashSync(process.env.ADMIN_PASSWORD, 10) };
+  store.get().user = { hash: bcrypt.hashSync(process.env.ADMIN_PASSWORD, sec.BCRYPT_COST), ...(sec.weakPassword(process.env.ADMIN_PASSWORD) ? { weak: true } : {}) };
   store.save();
   console.log('Создан администратор');
+  if (store.get().user.weak) console.warn('ВНИМАНИЕ: пароль администратора слабый (короче 10 символов или из известных). Смените его: Настройки → Безопасность.');
 }
 
 const app = express();
 app.disable('x-powered-by');
 app.use(tlsMod.headers);
+app.use(sec.headers);
 app.use(express.json({ limit: '4mb' }));
 app.use(cookieParser());
 app.get('/vendor/htm-preact.js', (req, res) =>
@@ -43,16 +46,17 @@ app.use('/api', createRouter());
 app.use(express.static(path.join(root, 'public')));
 
 const server = tlsMod.createServer(app);
-const wss = new WebSocketServer({ noServer: true });
+const wss = new WebSocketServer({ noServer: true, maxPayload: 64 * 1024 });
 
 const onUpgrade = async (req, socket, head) => {
   const m = /^\/ws\/servers\/([a-f0-9]{8})\/console$/.exec((req.url || '').split('?')[0]);
-  const tok = /(?:^|;\s*)mcp_token=([^;]+)/.exec(req.headers.cookie || '')?.[1];
+  const tok = sec.cookieOf(req.headers);
   let node = null;
   try {
     if (!m) throw new Error('no');
     if (!agentAuth(req.headers)) { // главная панель подключается к ноде по токену, браузер по cookie
-      if (!tok) throw new Error('no');
+      // браузер всегда присылает Origin при открытии WebSocket: чужой сайт не сможет подключиться к консоли от имени вошедшего администратора
+      if (!tok || sec.crossSite(req.headers)) throw new Error('no');
       verify(tok);
     }
     if (!store.get().servers.some(s => s.id === m[1])) {
@@ -90,6 +94,9 @@ async function consoleSession(ws, id) {
     catch (e) { send({ type: 'resp', data: 'Ошибка: ' + e.message }); }
   });
 }
+
+// Ошибка в фоновой задаче не должна ронять панель целиком: записываем её и работаем дальше.
+process.on('unhandledRejection', e => console.error('необработанная ошибка:', e));
 
 const port = process.env.PORT || 8088;
 server.listen(port, () => console.log('HorizonCraft слушает порт ' + port));

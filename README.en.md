@@ -555,7 +555,23 @@ The **Update to vX** button in **Settings → Security** updates the whole panel
 - The panel encrypts the connection itself: a self-signed certificate by default, and for the internet choose Let's Encrypt (domain or IP address), see [HTTPS and certificates](#-https-and-certificates). Keep the "HTTP" mode only while setting up. If the panel port is open to the internet, additionally restrict it with a firewall or a VPN.
 - Use a long, unique password and change the installer-generated one after first login.
 - `.env` holds the password: it is created with `600` permissions and listed in `.gitignore`. Never publish it.
-- Login attempts are rate-limited; sessions last 7 days in an `httpOnly` cookie.
+- The panel warns you when the password is weak (shorter than 10 characters or one of those guessed first).
+
+**What the panel does on its own**
+
+| Threat | Protection |
+|---|---|
+| Password guessing | After 5 mistakes the address is blocked for a minute, then the pause doubles up to an hour. Under a distributed attack every sign-in is slowed down. Password hash: bcrypt with cost 12 |
+| Session theft | The cookie is `HttpOnly`, `SameSite=Strict`, also `Secure` over HTTPS, and lasts 7 days. Changing the password and the **Sign out on all devices** button (Settings → Security) revoke all issued sessions at once |
+| Requests from other sites (CSRF) | State-changing requests and the WebSocket console are accepted only from the panel's own pages: `Origin` and `Sec-Fetch-Site` are checked |
+| Script injection (XSS) | Content Security Policy: own scripts only, no inline scripts and no `eval`. User text (nicknames, names, chat) is rendered as text, never as HTML |
+| Embedding the panel in another page | `X-Frame-Options`, `frame-ancestors`, `Cross-Origin-Opener-Policy` |
+| Escaping the server folder | Paths are checked for `..` and for symbolic links, including ones a plugin creates from inside the server: the panel does not read or write through a link pointing outside and does not extract archives over links |
+| Malicious plugin or mod | A Minecraft server runs in its own container as a regular user, with no privilege escalation (`no-new-privileges`), no raw sockets and a process limit. Helper containers (xray, the router) run with no kernel capabilities at all |
+| Secrets leaking from disk | `panel.json` (password hash, node tokens, keys, VLESS links) and certificate keys are readable by the owner only (`600`). The API never returns the RCON password, tokens or full keys |
+| Dependency tampering | Library versions and checksums are pinned in `package-lock.json`; the image is built with `npm ci` |
+
+What the panel cannot do: protect a weak password on a port open to the internet, or stop someone who already has root on the host. Do not expose the panel port to the whole internet: restrict it with a firewall or use a VPN.
 
 ## ❓ FAQ
 
@@ -585,6 +601,14 @@ It is reserved for `mc-router` as soon as any server has a domain set. Give the 
 <summary><b>Modpacks or mods do not download</b></summary>
 
 If CurseForge, Modrinth or Mojang are unavailable from your provider, pick a node in **Settings → Network → VLESS and proxy** (a 3x-ui subscription or a `vless://` link) and switch the server to **VLESS** or **TUN** above the console. More: [VLESS: proxy and TUN](#-vless-proxy-and-tun).
+</details>
+
+<details>
+<summary><b>The server crashes right after start</b></summary>
+
+Most often the Java version does not suit the server. In **Auto** mode the panel picks it by the Minecraft version: Java 8 up to 1.16, Java 17 for 1.17–1.20.4, Java 21 for 1.20.5–1.21, and the latest for newer versions. For CurseForge modpacks the version comes from the modpack itself. A Java that is too new breaks older mods: for example, 1.20.1 modpacks crash on Java 25.
+
+If the server crashes three times in a row on start, the panel does not let it restart forever: it recreates the server with a suitable Java, and if Java is not the cause, stops it and shows the reason. You can pick Java manually: **Server settings → Java version**. **Force stop** also works during such a loop.
 </details>
 
 ## 🤝 Contributing

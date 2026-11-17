@@ -291,7 +291,7 @@ function OverviewTab({ s }) {
         <${WorldButtons} s=${s} />
         <div><h3 style="margin-bottom:10px">Сейчас на сервере</h3>
           ${o.online.length ? html`<div class="list">${o.online.map(n => html`<div class="pcard" key=${n}>
-              <img src=${'https://mc-heads.net/avatar/' + n + '/24'} width="24" height="24" onError=${e => (e.target.style.display = 'none')} /><b>${n}</b></div>`)}</div>`
+              <img src=${'https://mc-heads.net/avatar/' + encodeURIComponent(n) + '/24'} width="24" height="24" onError=${e => (e.target.style.display = 'none')} /><b>${n}</b></div>`)}</div>`
             : html`<span class="muted">Никого нет</span>`}</div>
       </div>
     </div>
@@ -488,7 +488,7 @@ function AttemptsCard({ s, d, act, load, onTag }) {
       : html`<div class="col" style="gap:10px">${list.map(a => {
         const k = FAIL_KIND[a.kind] || FAIL_KIND.other, wl = has(d.whitelist, a.name), bn = has(d.banned, a.name);
         return html`<div class="pcard acard" key=${a.name}>
-          <img src=${'https://mc-heads.net/avatar/' + a.name + '/36'} width="36" height="36" onError=${e => (e.target.style.display = 'none')} />
+          <img src=${'https://mc-heads.net/avatar/' + encodeURIComponent(a.name) + '/36'} width="36" height="36" onError=${e => (e.target.style.display = 'none')} />
           <div class="grow" style="min-width:0">
             <b>${a.name} ${tagOf(d.tags, a.name) && html`<${TagPreview} nick=${a.name} tag=${tagOf(d.tags, a.name)} />`}</b>
             <div class="row wrap" style="gap:6px;margin-top:4px">
@@ -536,7 +536,7 @@ function PlayersTab({ s }) {
       <h2>Онлайн ${d.running ? html`<span class="sub">${d.online.length}${d.max ? ' из ' + d.max : ''}</span>` : ''}</h2>
       ${d.online.length === 0 ? html`<div class="muted">Никого нет на сервере</div>`
         : html`<div class="col" style="gap:10px">${d.online.map(n => html`<div class="pcard" key=${n}>
-            <img src=${'https://mc-heads.net/avatar/' + n + '/36'} width="36" height="36" onError=${e => (e.target.style.display = 'none')} />
+            <img src=${'https://mc-heads.net/avatar/' + encodeURIComponent(n) + '/36'} width="36" height="36" onError=${e => (e.target.style.display = 'none')} />
             <b class="grow">${n} ${tagOf(d.tags, n) && html`<${TagPreview} nick=${n} tag=${tagOf(d.tags, n)} />`}</b>
             ${d.ops.includes(n) && html`<span class="chip">OP</span>`}
             <select style="width:auto;padding:5px 8px" value="" onChange=${e => e.target.value && (act('gamemode', n, { mode: e.target.value }), (e.target.value = ''))}>
@@ -773,7 +773,7 @@ function ModsTab({ s, reload }) {
   const pick = async m => {
     if (kind === 'modpack' && !m.forceMod) {
       if (!(await askConfirm(`Установить сборку «${m.name}»?\n\nТип сервера сменится на «Сборка CurseForge». Файлы сборки скачаются при следующем запуске.`))) return;
-      patch({ type: 'AUTO_CURSEFORGE', cfSlug: m.slug, cfFileId: '' });
+      patch({ type: 'AUTO_CURSEFORGE', cfSlug: m.slug, cfMc: m.mc || '', cfFileId: '' });
     } else {
       const ref = m.forceMod ? String(m.id) : m.slug;
       if (mods.includes(ref)) return toast('Уже добавлен');

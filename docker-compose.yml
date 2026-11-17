@@ -4,6 +4,9 @@ services:
     image: horizoncraft:latest
     container_name: horizoncraft
     restart: unless-stopped
+    # процесс панели не может получить новые привилегии через setuid-программы
+    security_opt:
+      - no-new-privileges:true
     ports:
       - "${PANEL_PORT:-8088}:8088"
     environment:

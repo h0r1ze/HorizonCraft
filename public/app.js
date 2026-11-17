@@ -1,4 +1,4 @@
-import { html, rawHtml, render, t, lang, setLang, LANGS, useState, useEffect, Icon, Btn, Field, Toasts, Dialogs, toast, StateBadge, Avatar, Spark, Meter, TYPE_NAMES, TYPE_COLOR, addrOf, appState, getTheme, setTheme, THEMES, getUi, setUi, useUi, UIS, fmtBytes, fmtUptime, copyText, plural, isRemote } from './ui.js';
+import { html, rawHtml, render, t, lang, setLang, LANGS, useState, useEffect, askConfirm, Icon, Btn, Field, Toasts, Dialogs, toast, StateBadge, Avatar, Spark, Meter, TYPE_NAMES, TYPE_COLOR, addrOf, appState, getTheme, setTheme, THEMES, getUi, setUi, useUi, UIS, fmtBytes, fmtUptime, copyText, plural, isRemote } from './ui.js';
 import { api } from './api.js';
 import { CreatePage } from './create.js';
 import { NodesStrip, NodesSettings } from './nodes.js';
@@ -162,6 +162,7 @@ function Dashboard() {
       <div class="sub">${list ? `${list.length} ${plural(list.length, 'сервер', 'сервера', 'серверов')} · работает: ${running} · игроков онлайн: ${players}` : 'Загрузка…'}</div></div>
       <${Btn} kind="primary" icon="plus" onClick=${() => (location.hash = '#/new')}>Создать сервер</${Btn}></div>
     <${UpdateBanner} />
+    ${appState.weakPassword && html`<div class="banner warn flex" id="weak-banner"><span class="grow"><b>Пароль панели слабый.</b> Вход в панель даёт полный доступ к этой машине.</span><a class="btn sm" href="#/settings/security">Сменить пароль</a></div>`}
     <${HostTiles} />
     <${NodesStrip} />
     <div class="row" style="margin:6px 0 14px"><h2>Серверы</h2></div>
@@ -236,7 +237,16 @@ function SettingsPage({ onTheme, theme, onUi, section: sec0 }) {
     } catch (x) { toast(x.message, 'err'); }
   };
   const changePw = async () => {
-    try { await api('/password', { method: 'POST', body: pw }); toast('Пароль изменён'); setPw({ old: '', next: '' }); }
+    try {
+      await api('/password', { method: 'POST', body: pw });
+      toast('Пароль изменён. На остальных устройствах вход завершён.'); setPw({ old: '', next: '' });
+      appState.weakPassword = !!(await api('/me')).weakPassword; setWeak(appState.weakPassword);
+    } catch (x) { toast(x.message, 'err'); }
+  };
+  const [weak, setWeak] = useState(!!appState.weakPassword);
+  const logoutAll = async () => {
+    if (!(await askConfirm('Завершить вход на всех остальных устройствах?\n\nВ этом браузере вы останетесь в панели. Пригодится, если панель открывали на чужом компьютере или есть подозрение, что кто-то получил доступ.'))) return;
+    try { await api('/logout/all', { method: 'POST' }); toast('На остальных устройствах вход завершён'); }
     catch (x) { toast(x.message, 'err'); }
   };
   const updImg = async () => {
@@ -273,13 +283,19 @@ function SettingsPage({ onTheme, theme, onUi, section: sec0 }) {
     security: html`
     <${PanelUpdateCard} />
     <${TlsCard} />
-    <div class="card col">
+    <div class="card col" id="password-card">
       <h2>Смена пароля</h2>
+      ${weak && html`<div class="banner warn" style="margin:0"><b>Пароль слабый.</b> Он короче 10 символов или из тех, что подбирают первыми. Вход в панель даёт полный доступ к этой машине, задайте пароль длиннее.</div>`}
       <div class="two">
         <${Field} label="Текущий пароль"><input type="password" value=${pw.old} onInput=${e => setPw({ ...pw, old: e.target.value })} /></${Field}>
-        <${Field} label="Новый пароль" hint="Минимум 8 символов"><input type="password" value=${pw.next} onInput=${e => setPw({ ...pw, next: e.target.value })} /></${Field}>
+        <${Field} label="Новый пароль" hint="Минимум 8 символов, лучше 12 и больше. После смены на остальных устройствах нужно будет войти заново."><input type="password" value=${pw.next} onInput=${e => setPw({ ...pw, next: e.target.value })} /></${Field}>
       </div>
       <div><${Btn} onClick=${changePw} disabled=${!pw.old || !pw.next}>Изменить пароль</${Btn}></div>
+      <div class="col" style="gap:10px;border-top:1px solid var(--line);padding-top:14px">
+        <h3>Сеансы</h3>
+        <small class="muted">Вход действует 7 дней. Перебор пароля ограничен: после 5 ошибок адрес блокируется на минуту, и с каждым разом пауза удваивается (до часа).</small>
+        <div><${Btn} icon="logout" onClick=${logoutAll}>Выйти на всех устройствах</${Btn}></div>
+      </div>
     </div>`,
     servers: html`
     <div class="card col">
@@ -378,7 +394,7 @@ function App() {
     return () => removeEventListener('hashchange', f);
   }, []);
   const check = async () => {
-    try { const me = await api('/me'); appState.version = me.version || ''; appState.settings = await api('/settings'); setAuth(true); syncLook(); } catch { setAuth(false); }
+    try { const me = await api('/me'); appState.version = me.version || ''; appState.weakPassword = !!me.weakPassword; appState.settings = await api('/settings'); setAuth(true); syncLook(); } catch { setAuth(false); }
   };
   useEffect(() => { check(); }, []);
   // Последняя выбранная тема и фон хранятся на сервере: при входе подтягиваем их, при смене сохраняем

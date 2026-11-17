@@ -2,8 +2,7 @@ import express from 'express';
 import crypto from 'crypto';
 import fs from 'fs';
 import path from 'path';
-import bcrypt from 'bcryptjs';
-import jwt from 'jsonwebtoken';
+import * as sec from './security.js';
 import multer from 'multer';
 import sharp from 'sharp';
 import { glowFrom } from './color.js';
@@ -34,6 +33,7 @@ import { agentAuth, AGENT, VERSION } from './agent.js';
 const h = fn => (req, res, next) =>
   Promise.resolve(fn(req, res, next)).catch(e => {
     if (!e.status) console.error(e);
+    if (e.retryAfter) res.setHeader('Retry-After', String(e.retryAfter));
     res.status(e.status || 500).json({ error: e.message || 'Ошибка' });
   });
 const bad = (m, s = 400) => Object.assign(new Error(m), { status: s });
@@ -139,6 +139,7 @@ function sanitize(b, cur = {}) {
     if (!/^[A-Za-z0-9._-]{0,40}$/.test(String(b.loaderVersion))) throw bad('Недопустимая версия загрузчика');
     o.loaderVersion = String(b.loaderVersion);
   }
+  if ('cfMc' in b) { if (!/^[0-9][0-9A-Za-z.-]{0,20}$|^$/.test(String(b.cfMc))) throw bad('Недопустимая версия Minecraft у сборки'); o.cfMc = String(b.cfMc); }
   if ('cfSlug' in b) { if (!/^[a-z0-9-]{0,100}$/.test(b.cfSlug)) throw bad('Недопустимый slug сборки'); o.cfSlug = b.cfSlug; }
   if ('cfFileId' in b) { if (!/^\d{0,12}$/.test(String(b.cfFileId))) throw bad('ID файла - только цифры'); o.cfFileId = String(b.cfFileId); }
   if ('cfMods' in b) o.cfMods = csv(b.cfMods, /^[A-Za-z0-9_.:\/-]{1,200}$/);
@@ -205,17 +206,10 @@ const coverFile = (id, sm) => path.join(COVERS, `${id}${sm ? '-sm' : ''}.webp`);
 const logoFile = dk.logoPath;
 
 // ---------- файлы ----------
-function safe(id, rel = '') {
-  const base = path.resolve(dk.serverDir(id));
-  const p = path.resolve(base, '.' + path.sep + String(rel).replace(/^[\\/]+/, ''));
-  if (p !== base && !p.startsWith(base + path.sep)) throw bad('Недопустимый путь');
-  try {
-    const rb = fs.realpathSync(base), rp = fs.realpathSync(p);
-    if (rp !== rb && !rp.startsWith(rb + path.sep)) throw bad('Недопустимый путь');
-  } catch (e) { if (e.status) throw e; }
-  return { base, p };
-}
-const own = p => { try { fs.chownSync(p, 1000, 1000); } catch {} };
+/* Путь внутри папки сервера. Выход наружу через «..» или через символическую ссылку (её может создать плагин) отклоняется,
+   в том числе для ещё не существующих файлов: проверяется ближайшая существующая папка. */
+const safe = (id, rel = '') => sec.resolveInside(dk.serverDir(id), rel);
+const own = p => sec.lchown(p);
 
 // ---------- кэш версий ----------
 let vCache = { at: 0, list: [] };
@@ -236,7 +230,7 @@ function portable(cfg) {
   return { ...rest, images: { cover: img(cover, coverFile(cfg.id)), logo: img(logo, logoFile(cfg.id)) } };
 }
 
-const PORTABLE_KEYS = ['name', 'nameFmt', 'motd', 'type', 'version', 'memory', 'javaTag', 'loaderVersion', 'cfSlug', 'cfFileId', 'cfMods', 'modrinthMods', 'extraPorts', 'props', 'customEnv'];
+const PORTABLE_KEYS = ['name', 'nameFmt', 'motd', 'type', 'version', 'memory', 'javaTag', 'loaderVersion', 'cfSlug', 'cfMc', 'cfFileId', 'cfMods', 'modrinthMods', 'extraPorts', 'props', 'customEnv'];
 
 function cleanTags(t) {
   const out = {};
@@ -314,30 +308,27 @@ async function finishStaged(token, { start = false, name } = {}) {
   return view(cfg);
 }
 
-export function verify(token) {
-  return jwt.verify(token, store.get().secret);
-}
+export const verify = sec.verify;
 
 export function createRouter() {
   const r = express.Router();
-  const attempts = new Map();
+  r.use(sec.noStore);
+  r.use((req, res, next) => (agentAuth(req.headers) ? next() : sec.sameOrigin(req, res, next)));
 
   r.post('/login', h(async (req, res) => {
-    const a = attempts.get(req.ip) || { n: 0, until: 0 };
-    if (a.until > Date.now()) throw bad('Слишком много попыток. Подождите минуту.', 429);
-    const u = store.get().user;
-    if (!u || !(await bcrypt.compare(String(req.body.password || ''), u.hash))) {
-      a.n++;
-      if (a.n >= 5) { a.until = Date.now() + 60000; a.n = 0; }
-      attempts.set(req.ip, a);
+    const k = sec.limiter.check(req.ip);
+    await sec.limiter.slow();
+    const password = req.body?.password;
+    if (typeof password !== 'string' || !(await sec.verifyPassword(password))) {
+      sec.limiter.fail(k);
       throw bad('Неверный пароль', 401);
     }
-    attempts.delete(req.ip);
-    const t = jwt.sign({ u: 'admin' }, store.get().secret, { expiresIn: '7d' });
-    res.cookie('mcp_token', t, { httpOnly: true, sameSite: 'strict', secure: !!req.secure, maxAge: 7 * 864e5 });
+    sec.limiter.ok(k);
+    await sec.upgradeHash(password);
+    sec.issue(res, req);
     res.json({ ok: true });
   }));
-  r.post('/logout', (req, res) => { res.clearCookie('mcp_token'); res.json({ ok: true }); });
+  r.post('/logout', (req, res) => { sec.clear(res, req); res.json({ ok: true }); });
 
   r.use((req, res, next) => {
     if (agentAuth(req.headers)) return next(); // главная панель обращается к этой как к ноде
@@ -345,7 +336,14 @@ export function createRouter() {
     catch { res.status(401).json({ error: 'Требуется вход' }); }
   });
 
-  r.get('/me', (req, res) => res.json({ ok: true, agent: AGENT, version: VERSION }));
+  // Завершить все сессии (на всех устройствах и в украденных копиях cookie) и остаться в этой.
+  r.post('/logout/all', h(async (req, res) => {
+    sec.revokeAll();
+    sec.issue(res, req);
+    res.json({ ok: true });
+  }));
+
+  r.get('/me', (req, res) => res.json({ ok: true, agent: AGENT, version: VERSION, weakPassword: !!store.get().user?.weak }));
 
   // ---------- ноды: серверы на других машинах ----------
   r.get('/nodes', h(async (req, res) => {
@@ -388,11 +386,18 @@ export function createRouter() {
   }));
 
   r.post('/password', h(async (req, res) => {
-    const { old, next } = req.body;
-    if (!(await bcrypt.compare(String(old || ''), store.get().user.hash))) throw bad('Старый пароль неверен');
-    if (String(next || '').length < 8) throw bad('Новый пароль: минимум 8 символов');
-    store.get().user.hash = await bcrypt.hash(next, 10);
+    const { old, next } = req.body || {};
+    // тот же счётчик, что и у входа: с украденной сессией нельзя перебирать текущий пароль
+    const k = sec.limiter.check(req.ip);
+    if (typeof old !== 'string' || !(await sec.verifyPassword(old))) { sec.limiter.fail(k); throw bad('Старый пароль неверен'); }
+    sec.limiter.ok(k);
+    const pw = sec.checkNewPassword(next);
+    const u = store.get().user;
+    u.hash = await sec.hashPassword(pw);
+    if (sec.weakPassword(pw)) u.weak = true; else delete u.weak;
+    u.gen = (u.gen || 0) + 1;      // все прежние сессии перестают действовать
     store.save();
+    sec.issue(res, req);
     res.json({ ok: true });
   }));
 
@@ -569,10 +574,12 @@ export function createRouter() {
     const j = await resp.json();
     res.json(j.data.map(m => ({
       id: m.id, name: m.name, slug: m.slug, summary: m.summary, icon: m.logo?.thumbnailUrl,
-      downloads: m.downloadCount, author: m.authors?.[0]?.name, url: m.links?.websiteUrl,
+      downloads: m.downloadCount, author: m.authors?.[0]?.name, url: m.links?.websiteUrl, mc: packMc(m),
     })));
   }));
 
+  /** Версия Minecraft последнего файла сборки: по ней панель заранее подбирает Java. */
+  const packMc = m => { const v = m.latestFilesIndexes?.[0]?.gameVersion; return /^[0-9][0-9A-Za-z.-]{0,20}$/.test(v || '') ? v : ''; };
   r.get('/cf/mod/:modId', h(async (req, res) => {
     const key = store.get().settings.cfApiKey;
     if (!key) throw bad('Ключ CurseForge не задан. Добавьте его в «Настройках».');
@@ -585,7 +592,7 @@ export function createRouter() {
     const m = (await resp.json()).data;
     res.json({
       id: m.id, name: m.name, slug: m.slug, summary: m.summary, icon: m.logo?.thumbnailUrl,
-      downloads: m.downloadCount, author: m.authors?.[0]?.name, url: m.links?.websiteUrl,
+      downloads: m.downloadCount, author: m.authors?.[0]?.name, url: m.links?.websiteUrl, mc: packMc(m),
       kind: m.classId === 4471 ? 'modpack' : m.classId === 6 ? 'mod' : 'other',
     });
   }));
@@ -730,7 +737,8 @@ export function createRouter() {
 
   r.post('/servers/:id/action', h(async (req, res) => {
     const { id } = req.cfg, a = req.body.action;
-    if (busy.has(id)) throw bad('Сервер занят: ' + busy.get(id), 409);
+    // принудительная остановка нужна именно тогда, когда что-то зависло, поэтому «занят» ей не помеха
+    if (busy.has(id) && a !== 'kill') throw bad('Сервер занят: ' + busy.get(id), 409);
     const cfg = req.cfg;
     if (a === 'start') run(id, 'Запуск…', () => dk.start(cfg));
     else if (a === 'stop') run(id, 'Остановка…', () => dk.stop(id));
@@ -890,6 +898,7 @@ export function createRouter() {
   r.put('/servers/:id/file', h(async (req, res) => {
     const { p } = safe(req.cfg.id, req.body.path);
     if (typeof req.body.content !== 'string') throw bad('Нет содержимого');
+    sec.guardWrite(dk.serverDir(req.cfg.id), p);
     fs.writeFileSync(p, req.body.content);
     own(p);
     res.json({ ok: true });
@@ -915,10 +924,21 @@ export function createRouter() {
           cb(null, p);
         } catch (e) { cb(e); }
       },
-      filename: (req, file, cb) => cb(null, path.basename(file.originalname)),
+      filename: (req, file, cb) => {
+        try {
+          const name = sec.cleanFileName(file.originalname);
+          // на месте файла может лежать ссылка наружу: запись должна попасть в обычный файл внутри папки сервера
+          sec.guardWrite(dk.serverDir(req.cfg.id), path.join(safe(req.cfg.id, req.query.path).p, name));
+          cb(null, name);
+        } catch (e) { cb(e); }
+      },
     }),
+    limits: { fileSize: 8 * 1024 ** 3, files: 50, fields: 20, parts: 80 },
   });
-  r.post('/servers/:id/upload', upload.array('files', 50), h(async (req, res) => {
+  const uploadFiles = (req, res, next) => upload.array('files', 50)(req, res, err => (err
+    ? res.status(err.status || 400).json({ error: err.code === 'LIMIT_FILE_SIZE' ? 'Файл больше 8 ГБ' : err.code === 'LIMIT_FILE_COUNT' ? 'За один раз можно загрузить до 50 файлов' : err.message || 'Не удалось принять файл' })
+    : next()));
+  r.post('/servers/:id/upload', uploadFiles, h(async (req, res) => {
     (req.files || []).forEach(f => own(f.path));
     res.json({ ok: true, count: (req.files || []).length });
   }));
@@ -938,6 +958,7 @@ export function createRouter() {
     const info = await imp.inspect(p);
     imp.checkSpace(info.total, path.dirname(p));
     const dest = path.dirname(p);
+    sec.assertNoLinks(dest, info.names);
     const flatten = !!req.body.flatten && !!info.singleRoot;
     const remove = !!req.body.remove;
     run(id, 'Распаковка…', async () => {

@@ -33,7 +33,7 @@ async function firewall(id, on) {
   const c = await dk.docker.createContainer({
     Image: self.Image, Entrypoint: ['sh', '-c'], Cmd: [P.tunScript(on)], User: '0',
     Labels: { mcpanel: 'tunfw' },
-    HostConfig: { NetworkMode: `container:${dk.cname(id)}`, CapAdd: ['NET_ADMIN'] },
+    HostConfig: { NetworkMode: `container:${dk.cname(id)}`, CapDrop: ['ALL'], CapAdd: ['NET_ADMIN', 'NET_RAW'], SecurityOpt: ['no-new-privileges:true'] },
   });
   try {
     await c.start();
@@ -80,7 +80,7 @@ export async function sync(cfg, info) {
         name: sideName(id), Image: XRAY_IMG, Cmd: ['xray', 'run', '-config', '/etc/xray/config.json'],
         User: `${P.TUN_UID}:${P.TUN_UID}`,
         Labels: { mcpanel: 'tun', 'mcpanel.id': id, 'mcpanel.spec': stamp },
-        HostConfig: { Binds: [`${TUN_DIR}:/etc/xray:ro`], NetworkMode: `container:${dk.cname(id)}` },
+        HostConfig: { Binds: [`${TUN_DIR}:/etc/xray:ro`], NetworkMode: `container:${dk.cname(id)}`, ...dk.LOCKED },
       });
       known.add(id);
       await c.start();

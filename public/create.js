@@ -68,7 +68,7 @@ function NewServerForm({ nodeId, tplId }) {
         ...(nodeId && nodeId !== 'local' ? { nodeId } : {}),
       } : {
         name: v.name.trim() || 'Новый сервер', type: v.type, memory: v.memory + 'G',
-        ...(isPack ? { cfSlug: v.cfSlug } : { version: v.version }),
+        ...(isPack ? { cfSlug: v.cfSlug, cfMc: v.cfMc || '' } : { version: v.version }),
         ...(nodeId && nodeId !== 'local' ? { nodeId } : {}),
       };
       const s = await api('/servers', { method: 'POST', body });
@@ -103,7 +103,7 @@ function NewServerForm({ nodeId, tplId }) {
         <h2>Сборка CurseForge</h2>
         ${v.cfSlug && html`<div class="banner info" style="margin:0">Выбрана сборка: <b>${v.cfName || v.cfSlug}</b>
           <span class="chip mono">${v.cfSlug}</span></div>`}
-        <${ModpackSearch} onPick=${m => set({ cfSlug: m.slug, cfName: m.name })} label="Выбрать сборку" />
+        <${ModpackSearch} onPick=${m => set({ cfSlug: m.slug, cfName: m.name, cfMc: m.mc || '' })} label="Выбрать сборку" />
       </div>`
       : html`<div class="card col">
         <h2>Версия Minecraft</h2>

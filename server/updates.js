@@ -229,9 +229,10 @@ async function applyMods(cfg, wanted, withBackup) {
     try {
       if (newName !== file && fs.existsSync(newPath)) throw bad(`Файл ${newName} уже существует`);
       const tmp = newPath + '.hcupd';
+      dk.guard(cfg.id, tmp); dk.guard(cfg.id, newPath);
       await download(info.url, tmp, info.sha1, info.size);
       fs.renameSync(tmp, newPath);
-      try { fs.chownSync(newPath, 1000, 1000); } catch {}
+      try { fs.lchownSync(newPath, 1000, 1000); } catch {}
       if (newName !== file) fs.rmSync(oldPath, { force: true });
       results.push({ file, ok: true, to: newName });
     } catch (e) { results.push({ file, ok: false, error: e.message }); }

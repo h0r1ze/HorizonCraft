@@ -12,6 +12,8 @@ import { run as swap } from './tls/portswap.js';
 import { INNER_PORT } from './tls/portspec.js';
 
 const FILES = ['Dockerfile', 'package.json', 'server', 'public'];
+const OPTIONAL = ['package-lock.json'];   // есть только в новых версиях
+const present = dir => [...FILES, ...OPTIONAL.filter(f => fs.existsSync(path.join(dir, f)))];
 
 /** Имя образа без тега и тег: «horizoncraft:latest» → ['horizoncraft', 'latest']. */
 export function splitRef(ref) {
@@ -59,7 +61,7 @@ export async function update({ docker, self, dataDir, tarball, sha, from = '', p
   // 2. новый образ под тем же именем; прежний остаётся по id для отката
   save({ step: 'Сборка новой версии…' });
   try {
-    const ctx = spawn('tar', ['-c', '-C', work, ...FILES]);
+    const ctx = spawn('tar', ['-c', '-C', work, ...present(work)]);
     const stream = await docker.buildImage(ctx.stdout, { t: image, rm: true, forcerm: true });
     const out = await new Promise((res, rej) => docker.modem.followProgress(stream, (e, o) => (e ? rej(e) : res(o))));
     const err = out.find(o => o.error || o.errorDetail);
@@ -86,8 +88,8 @@ export async function update({ docker, self, dataDir, tarball, sha, from = '', p
   if (cdir && fs.existsSync(path.join(cdir, 'docker-compose.yml'))) {
     try {
       const stamp = new Date().toISOString().replace(/[:.]/g, '-');
-      spawnSync('tar', ['-czf', path.join(dir, `code-before-${stamp}.tgz`), '-C', cdir, ...FILES.filter(f => fs.existsSync(path.join(cdir, f)))]);
-      for (const f of FILES) { fs.rmSync(path.join(cdir, f), { recursive: true, force: true }); fs.cpSync(path.join(work, f), path.join(cdir, f), { recursive: true }); }
+      spawnSync('tar', ['-czf', path.join(dir, `code-before-${stamp}.tgz`), '-C', cdir, ...[...FILES, ...OPTIONAL].filter(f => fs.existsSync(path.join(cdir, f)))]);
+      for (const f of present(work)) { fs.rmSync(path.join(cdir, f), { recursive: true, force: true }); fs.cpSync(path.join(work, f), path.join(cdir, f), { recursive: true }); }
       log('код обновлён в ' + cdir);
     } catch (e) { log('код рядом с docker-compose.yml не обновлён: ' + e.message); st.codeError = e.message; }
   }

@@ -124,11 +124,57 @@ export async function applyTags(cfg) {
   });
 }
 
+/* ---------- защита от бесконечного перезапуска ---------- */
+/* Docker сам поднимает упавший сервер. Если сервер падает сразу при запуске (не та Java, сломанный мод), это превращается
+   в бесконечный цикл: сервер недоступен, диск забивается отчётами о сбое. После трёх падений за 10 минут панель вмешивается:
+   если за это время стало ясно, что нужна другая Java (сборка установилась, и её версия Minecraft известна), пересоздаёт
+   сервер с подходящим образом, иначе останавливает его и показывает причину. */
+const CRASH_WIN = 600e3, CRASH_MAX = 3;
+const crashes = new Map();   // id -> { seen: RestartCount, at: [время падений], fixed: уже пробовали сменить Java }
+export function crashHint(log) {
+  if (/fatal error has been detected by the Java Runtime|SIGSEGV|UnsupportedClassVersionError|has been compiled by a more recent version|requires Java|Unsupported Java detected/i.test(log)) {
+    return ' Похоже, серверу не подходит версия Java: выберите другую в «Настройки → Версия Java» и запустите снова.';
+  }
+  if (/OutOfMemoryError|There is insufficient memory/i.test(log)) return ' Серверу не хватило памяти: увеличьте её в «Настройках» сервера.';
+  if (/Address already in use|FAILED TO BIND TO PORT/i.test(log)) return ' Порт сервера занят другой программой: смените его во вкладке «Сеть и домен».';
+  return ' Причина видна в консоли сервера.';
+}
+/** Отмечает перезапуски контейнера. Возвращает true, когда пора вмешаться. */
+export function crashSeen(id, restartCount, now = Date.now()) {
+  let c = crashes.get(id);
+  if (!c) c = { seen: restartCount, at: [], fixed: false };
+  if (restartCount < c.seen) c.seen = restartCount;   // контейнер пересоздан, счётчик Docker начался заново
+  if (restartCount > c.seen) { for (let i = c.seen; i < restartCount; i++) c.at.push(now); c.seen = restartCount; }
+  c.at = c.at.filter(t => now - t < CRASH_WIN);
+  crashes.set(id, c);
+  return c.at.length >= CRASH_MAX;
+}
+export const crashReset = id => crashes.delete(id);
+async function crashGuard(cfg, info) {
+  if (!info || busy.has(cfg.id)) return;
+  if (!crashSeen(cfg.id, info.RestartCount || 0)) return;
+  const c = crashes.get(cfg.id);
+  c.at = [];
+  const stale = info.Config.Labels?.['mcpanel.spec'] !== dk.specOf(cfg);
+  if (stale && !c.fixed) {
+    // настройки контейнера устарели (например, после установки сборки стала известна версия Minecraft и нужна другая Java)
+    c.fixed = true;
+    console.log(`Сервер ${cfg.id} падает при запуске: пересоздаю контейнер с образом ${dk.IMG}:${dk.javaTag(cfg)}`);
+    run(cfg.id, 'Перезапуск с подходящей Java…', async () => { await dk.kill(cfg.id); await dk.start(cfg); });
+    return;
+  }
+  const log = await dk.tailLog(cfg.id, 120);
+  await dk.kill(cfg.id).catch(e => console.error('crash guard', e.message));
+  errs.set(cfg.id, 'Сервер несколько раз подряд упал при запуске и остановлен, чтобы не перезапускаться бесконечно.' + crashHint(log));
+  console.log(`Сервер ${cfg.id} остановлен: падает при запуске`);
+}
+
 async function pollServer(cfg) {
   let L = live.get(cfg.id);
   if (!L) { L = { hist: [], running: false, online: [], count: 0, max: null }; live.set(cfg.id, L); }
   const info = await dk.inspect(cfg.id).catch(() => null);
   tun.sync(cfg, info).catch(e => console.error('tun', e.message));   // режим TUN: спутник xray рядом с сервером
+  await crashGuard(cfg, info).catch(e => console.error('crash guard', e.message));
   if (!info?.State.Running) { L.running = false; L.online = []; L.count = 0; L.cpu = 0; L.cores = 0; L.mem = 0; return; }
   if (!L.running) L.hist = [];
   const st = await dk.stats(cfg.id, true).catch(() => null);
@@ -218,7 +264,7 @@ export async function restoreBackup(cfg, name) {
   for (const e of fs.readdirSync(dir)) fs.rmSync(path.join(dir, e), { recursive: true, force: true });
   const r = await sh('tar', ['-xzf', file, '-C', dir]);
   if (r.code !== 0) throw new Error('Не удалось распаковать архив: ' + r.err.slice(0, 200));
-  await sh('chown', ['-R', '1000:1000', dir]);
+  await sh('chown', ['-hR', '1000:1000', dir]);
   duCache.delete(cfg.id);
 }
 
@@ -226,7 +272,7 @@ export async function cloneData(fromId, toId) {
   const src = dk.serverDir(fromId), dst = dk.serverDir(toId);
   fs.rmSync(dst, { recursive: true, force: true });
   fs.cpSync(src, dst, { recursive: true });
-  await sh('chown', ['-R', '1000:1000', dst]);
+  await sh('chown', ['-hR', '1000:1000', dst]);
 }
 
 /* ---------- расписание ---------- */
