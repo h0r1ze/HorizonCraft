@@ -302,16 +302,45 @@ function OverviewTab({ s }) {
 /* ---------------- Консоль ---------------- */
 const stripAnsi = t => t.replace(/\x1b\[[0-9;?]*[A-Za-z]/g, '').replace(/\r/g, '');
 
+/* «Шум» больших сборок: сообщения модов, которые бывают при каждом запуске и не мешают игре (рецепты и достижения
+   для отсутствующих на сервере предметов, конфликты миксинов, автоисправление настроек, разбор таблиц добычи).
+   Строки стека вызовов после такой строки тоже считаются шумом. Сбои сервера сюда не попадают. */
+const NOISE = new RegExp([
+  'Parsing error loading (recipe|custom advancement)', "Couldn't parse (element|data file) ", 'Failed to parse LootFunction', '^\\S*\\s*\\[main/ERROR\\]: Thrown Error:',
+  'Load My F\\*\\*\\*ing Tags', 'The following tags are invalid and will be ignored', "Couldn't load (certain entries|the given entries) within (the )?tag",
+  'Unable to parse Version in jar:', 'Incorrect key .* was corrected from', 'Lithium Class Analysis Error', 'Non-unique structure_set salt',
+  "Attribute ID '.*' does not belong to a known attribute", '(Method overwrite|@ModifyConstant|@Redirect) conflict', 'Injection warning: LVT', 'Static binding violation',
+  'Reference map .* could not be read', 'specified a duration\\. Durations have no impact', 'Could not decode GlobalLootModifier', 'Just Enough Structures loot index',
+  'Entity [\\w:]+ has no attributes', 'Failed to load book .* skipping', 'Ignoring world \'', 'Recipe without matching ID', 'has an update available:',
+  'Tried to access a block entity before it was created', 'Your custom .* recipe', 'Shift\\.BY=\\d+ .* exceeds the maximum allowed value',
+].join('|'));
+// продолжение многострочного сообщения: стек вызовов, «Caused by», список ожидаемых аргументов миксина
+const CONT = /^(\s+at |\s*\.\.\. \d+ more|Caused by: |\s*(Expected|Found|Available): |java\.lang\.\w+(Exception|Error)|com\.google\.gson\.)/;
+// важное показывается всегда, даже если похоже на шум
+const IMPORTANT = /Done \(|Exception in server tick loop|fatal error|Crash|crash-reports|Stopping server|joined the game|left the game|Failed to start|Error occurred during initialization|OutOfMemoryError/i;
+// цвет строки; повторная загрузка файла после тайм-аута CDN — предупреждение, а не ошибка установки
+const lineClass = t => (/Retry #\d+ download|ReadTimeoutException|The connection observed an error/.test(t) ? 'warn'
+  : /\bERROR\b|Exception/.test(t) ? 'error' : /\bWARN\b/.test(t) ? 'warn' : '');
+const hideNoiseKey = 'hc-console-hide-noise';
+const loadHide = () => { try { return localStorage.getItem(hideNoiseKey) !== '0'; } catch { return true; } };
+
 function ConsoleTab({ s }) {
   const [lines, setLines] = useState([]);
   const [input, setInput] = useState('');
   const [filter, setFilter] = useState('');
   const [atBottom, setAtBottom] = useState(true);
   const [retries, setRetries] = useState(0);
+  const [hideNoise, setHideNoise] = useState(loadHide);
   const box = useRef(null), ws = useRef(null), stick = useRef(true), force = useRef(0);
   const hist = useRef({ list: [], i: -1 });
+  const lastNoise = useRef(false);
   const push = (text, cls = '') => setLines(l => {
-    const add = stripAnsi(text).split('\n').filter(x => x.length).map(t => ({ t, cls }));
+    const add = stripAnsi(text).split('\n').filter(x => x.length).map(t => {
+      if (cls !== 'log') return { t, cls, noise: false };
+      const noise = !IMPORTANT.test(t) && (NOISE.test(t) || (lastNoise.current && CONT.test(t)));
+      if (!CONT.test(t)) lastNoise.current = noise;
+      return { t, cls: lineClass(t), noise };   // цвет у каждой строки свой: в одном куске журнала их бывает много
+    });
     return [...l, ...add].slice(-3000);
   });
   useEffect(() => {
@@ -323,11 +352,9 @@ function ConsoleTab({ s }) {
       w.onmessage = e => {
         const m = JSON.parse(e.data);
         if (m.type === 'log') {
-          // повторная загрузка файла сборки после тайм-аута CDN: это предупреждение, а не ошибка установки
-          const retry = /Retry #\d+ download|ReadTimeoutException|The connection observed an error/.test(m.data);
           const n = (m.data.match(/Retry #\d+ download/g) || []).length;
           if (n) setRetries(r => r + n);
-          push(m.data, retry ? 'warn' : /\bERROR\b|Exception/.test(m.data) ? 'error' : /\bWARN\b/.test(m.data) ? 'warn' : '');
+          push(m.data, 'log');
         }
         else if (m.type === 'resp') push(m.data, 'resp');
         else if (m.type === 'info') push(m.data, 'dim');
@@ -337,7 +364,10 @@ function ConsoleTab({ s }) {
     connect();
     return () => { closed = true; clearTimeout(timer); ws.current && ws.current.close(); };
   }, [s.id, s.state === 'missing']);
-  const shown = filter ? lines.filter(l => l.t.toLowerCase().includes(filter.toLowerCase())) : lines;
+  const visible = hideNoise ? lines.filter(l => !l.noise) : lines;
+  const hidden = lines.length - visible.length;
+  const shown = filter ? visible.filter(l => l.t.toLowerCase().includes(filter.toLowerCase())) : visible;
+  const toggleNoise = () => { const v = !hideNoise; setHideNoise(v); try { localStorage.setItem(hideNoiseKey, v ? '1' : '0'); } catch {} };
   // Прокрутка зависит от самого массива строк, а не от его длины: после 3000 строк длина не растёт.
   useEffect(() => {
     const el = box.current;
@@ -376,6 +406,7 @@ function ConsoleTab({ s }) {
     ${retries > 0 && html`<div class="banner info" id="retry-note">Сервер загрузок CurseForge отвечает медленно, повторных попыток: <b>${retries}</b>. Это не ошибка: файл скачивается со следующей попытки, установка продолжается. Если повторов очень много, переключите трафик сервера на VLESS выше.</div>`}
     <div class="cwrap">
       <div class="cbar"><div class="dots"><i></i><i></i><i></i></div><span class="mono grow">${s.name} · console</span>
+        <button type="button" id="noise-toggle" class=${'noisebtn ' + (hideNoise ? 'on' : '')} title="Сообщения модов, которые бывают при каждом запуске и не мешают игре" onClick=${toggleNoise}>${hideNoise ? (hidden ? `Шум скрыт: ${hidden}` : 'Шум скрыт') : 'Показать только важное'}</button>
         <input placeholder="Фильтр" value=${filter} onInput=${e => setFilter(e.target.value)} />
         <${Btn} kind="sm ghost icon" icon="download" title="Скачать лог" onClick=${download} />
         <${Btn} kind="sm ghost icon" icon="trash" title="Очистить" onClick=${() => setLines([])} /></div>

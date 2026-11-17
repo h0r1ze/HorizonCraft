@@ -154,4 +154,5 @@ export default [
   [/^Готово, освобождено (.+)$/, (t, a) => `Done, freed ${a}`],
   [/^Удалено не всё: (.+)$/s, (t, a) => `Not everything was deleted: ${a}`],
   [/^Удалить выбранное безвозвратно\?\s*Элементов: (\d+)(?:, освободится около (.+?))?\. Серверы из списка панели не затрагиваются\.$/s, (t, a, b) => `Delete the selected items permanently?\n\nItems: ${a}${b ? ', about ' + b + ' will be freed' : ''}. Servers listed in the panel are not touched.`],
+  [/^Шум скрыт: (\d+)$/, (t, a) => `Noise hidden: ${a}`],
 ];

@@ -382,6 +382,7 @@ The panel edits the same message instead of flooding the channel. It refreshes e
 
 - The webhook URL and the bot token are secrets: the panel never shows them in the interface and leaves them out of clones, migrations and templates. `@everyone` mentions in messages are disabled.
 - Discord is blocked by some providers. The **Connection to Discord** block switches the board requests and the bot connection to **Via VLESS** (the node from the [VLESS settings](#-vless-proxy-and-tun)). The rest of the traffic is unchanged. **Check connection** shows at once whether Discord opens and accepts the webhook or the token.
+- No webhook or bot: the **Copy for Discord** button under the preview puts the board text (Markdown) on the clipboard so you can paste it into any channel by hand. It is a snapshot and does not update itself.
 - If the panel stops, the message stops updating (the timestamp in it shows this) and the bot goes offline.
 
 ## 👥 Player groups
@@ -501,6 +502,10 @@ The **Update to vX** button in **Settings → Security** updates the whole panel
 - The code next to `docker-compose.yml` is updated too, so `./update.sh` and `docker compose` keep building the same version. The previous code is saved in `DATA_DIR/update`.
 - **Check now** asks GitHub right away. If GitHub is blocked by your provider and the panel's CurseForge requests go via VLESS, the check and the download use the same node.
 - Updating from the panel works in a regular Docker installation. Outside Docker, use `./update.sh`.
+
+### Console: mod noise
+
+Big modpacks print hundreds of messages on every start, like `Parsing error loading recipe`, `Couldn't parse element loot_tables`, `Incorrect key … was corrected`, `Lithium Class Analysis Error`. They do not affect the game but clutter the console. The **Noise hidden** button in the console header hides them together with their stack traces (they stay in the log file); clicking again shows everything. Startup, player joins and real crashes are always shown. Mod download retries after a timeout (`ReadTimeoutException`) are shown in yellow, and the number of retries appears above the console.
 
 ## 🧽 Disk cleanup
 

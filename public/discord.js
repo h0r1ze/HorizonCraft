@@ -1,4 +1,4 @@
-import { html, rawHtml, useState, useEffect, useRef, Icon, Btn, Field, Toggle, toast, askConfirm, ago, appState, isRemote, lang as uiLang } from './ui.js';
+import { html, rawHtml, useState, useEffect, useRef, Icon, Btn, Field, Toggle, toast, askConfirm, ago, appState, isRemote, copyText, lang as uiLang } from './ui.js';
 import { api } from './api.js';
 import { ViaSwitch, ActiveLine } from './proxy.js';
 
@@ -13,10 +13,10 @@ const FIELDS = [['players', 'Игроки'], ['version', 'Версия'], ['addr
 const PV = {
   ru: { who: 'Вебхук', bot: 'БОТ', app: 'ПРИЛОЖЕНИЕ', today: 'сегодня', status: 'Статус', players: 'Игроки', of: 'из', version: 'Версия', address: 'Адрес', uptime: 'Аптайм', memory: 'Память', playing: 'Сейчас играют', self: 'обновляется само',
     online: '🟢 Онлайн', starting: '🟡 Запускается', offline: '🔴 Выключен', updates: 'обновляется', every: { 30: 'каждые 30 секунд', 60: 'каждую минуту', 120: 'каждые 2 минуты', 300: 'каждые 5 минут' },
-    started: '🟢 Сервер запущен', joined: '➕ Зашёл: ', about: 'ОБО МНЕ', verbs: { 0: 'Играет в', 2: 'Слушает', 3: 'Смотрит', 5: 'Соревнуется в' }, offShort: 'сервер выключен', bootShort: 'сервер запускается', gb: 'ГБ' },
+    started: '🟢 Сервер запущен', joined: '➕ Зашёл: ', about: 'ОБО МНЕ', verbs: { 0: 'Играет в', 2: 'Слушает', 3: 'Смотрит', 5: 'Соревнуется в' }, offShort: 'сервер выключен', bootShort: 'сервер запускается', gb: 'ГБ', d: 'д', h: 'ч', min: 'мин' },
   en: { who: 'Webhook', bot: 'BOT', app: 'APP', today: 'today', status: 'Status', players: 'Players', of: 'of', version: 'Version', address: 'Address', uptime: 'Uptime', memory: 'Memory', playing: 'Playing now', self: 'updates itself',
     online: '🟢 Online', starting: '🟡 Starting', offline: '🔴 Offline', updates: 'updates', every: { 30: 'every 30 seconds', 60: 'every minute', 120: 'every 2 minutes', 300: 'every 5 minutes' },
-    started: '🟢 Server started', joined: '➕ Joined: ', about: 'ABOUT ME', verbs: { 0: 'Playing', 2: 'Listening to', 3: 'Watching', 5: 'Competing in' }, offShort: 'server offline', bootShort: 'server starting', gb: 'GB' },
+    started: '🟢 Server started', joined: '➕ Joined: ', about: 'ABOUT ME', verbs: { 0: 'Playing', 2: 'Listening to', 3: 'Watching', 5: 'Competing in' }, offShort: 'server offline', bootShort: 'server starting', gb: 'GB', d: 'd', h: 'h', min: 'min' },
 };
 
 /** Кружок с аватаром отправителя: загруженная в форме картинка, аватар из Discord или первая буква имени. */
@@ -70,6 +70,41 @@ function Preview({ s, d, f, address, draft, withEvent }) {
         <div class="dc-embed" style="border-left-color:#3498db"><div class="dc-title">${title}</div><div class="dc-desc">${X.joined}<code>Steve</code></div></div></div>
     </div>`}
   </div>`;
+}
+
+/** Текст табло для ручной вставки в Discord (без вебхука и бота): Markdown, который Discord сам оформит.
+    Снимок на момент копирования, сам он обновляться не будет. */
+export function discordText(s, f, address) {
+  const X = PV[f.lang] || PV.ru, look = f.look, on = look.fields;
+  const up = s.state === 'running', boot = s.state === 'starting';
+  const ver = `${TYPE_NAME[s.type] || s.type} ${s.version && s.version !== 'LATEST' ? s.version : ''}`.trim();
+  const esc = t => String(t ?? '').replace(/([\*_~`|>])/g, '\$1');
+  const lines = [`## ${esc(look.title || s.name)}`];
+  if (look.text) lines.push(look.text);
+  lines.push(`**${X.status}:** ${up ? X.online : boot ? X.starting : X.offline}`);
+  if (up && on.players) lines.push(`**${X.players}:** ${s.players ?? 0} ${X.of} ${s.maxPlayers ?? '—'}`);
+  if (on.version) lines.push(`**${X.version}:** ${esc(ver)}`);
+  if (address && on.address) lines.push(`**${X.address}:** \`${String(address).replace(/`/g, '')}\``);
+  if (up && on.uptime && s.startedAt) {
+    const m = Math.max(0, Math.floor((Date.now() - new Date(s.startedAt)) / 60000)), dd = Math.floor(m / 1440), hh = Math.floor(m % 1440 / 60);
+    lines.push(`**${X.uptime}:** ${dd ? `${dd} ${X.d} ` : ''}${hh || dd ? `${hh} ${X.h} ` : ''}${m % 60} ${X.min}`);
+  }
+  if (up && on.memory && s.mem) {
+    const lim = /^(\d+)([MG])$/i.exec(s.memory || ''), gb = n => (n / 1024 ** 3).toFixed(1).replace(/\.0$/, '');
+    lines.push(`**${X.memory}:** ${gb(s.mem)}${lim ? ' / ' + (lim[2].toUpperCase() === 'G' ? lim[1] : gb(lim[1] * 1024 ** 2)) : ''} ${X.gb}`);
+  }
+  if (look.footerOn) lines.push(`-# ${esc(look.footer || 'HorizonCraft')}`);
+  return lines.join('\n');
+}
+/** Кнопка «Скопировать для Discord» под макетом. */
+function CopyText({ s, f, address }) {
+  const copy = async () => {
+    const ok = await copyText(discordText(s, f, address), true);
+    toast(ok ? 'Скопировано. Вставьте в любой канал Discord (Ctrl+V)' : 'Не удалось скопировать: браузер не дал доступ к буферу обмена', ok ? 'ok' : 'err');
+  };
+  return html`<div class="row wrap dc-copy" style="gap:10px;align-items:center">
+    <${Btn} kind="sm" icon="copy" onClick=${copy}>Скопировать для Discord</${Btn}>
+    <small class="muted grow">Без вебхука и бота: текст табло на этот момент, вставьте его в канал сами. Обновляться он не будет.</small></div>`;
 }
 
 /** Макет профиля бота: так он выглядит в списке участников и по клику на имя. */
@@ -268,7 +303,8 @@ function LookCard({ s, d, f, address, setF }) {
           ${look.footerOn && html`<input value=${look.footer} maxlength="60" placeholder="HorizonCraft" onInput=${e => set({ footer: e.target.value })} />`}</div>
       </div>
       <div class="col" style="gap:8px;min-width:0"><span class="muted" style="font-size:12.5px">Так сообщения выглядят в канале сейчас</span>
-        <${Preview} s=${s} d=${d} f=${f} address=${address} withEvent=${true} /></div>
+        <${Preview} s=${s} d=${d} f=${f} address=${address} withEvent=${true} />
+        <${CopyText} s=${s} f=${f} address=${address} /></div>
     </div>
   </div>`;
 }
@@ -412,7 +448,7 @@ export function DiscordTab({ s }) {
         <${ProxyBox} s=${s} d=${d} value=${f.proxy} onChange=${v => setF({ ...f, proxy: v })} />
         ${d.error && html`<div class="banner warn" style="margin:0">${d.error}</div>`}
       </div>
-      <div class="card col"><h3 style="margin:0">Так это будет выглядеть</h3><${Preview} s=${s} d=${{ ...d, kind: kind0, profile: null }} f=${f} address=${addr} /></div>
+      <div class="card col"><h3 style="margin:0">Так это будет выглядеть</h3><${Preview} s=${s} d=${{ ...d, kind: kind0, profile: null }} f=${f} address=${addr} /><${CopyText} s=${s} f=${f} address=${addr} /></div>
     </div>`;
   }
 
@@ -431,7 +467,7 @@ export function DiscordTab({ s }) {
           <span class="grow"></span>
           <${Btn} kind="danger ghost" icon="x" disabled=${busy} onClick=${drop}>Отключить</${Btn}></div>
       </div>
-      <div class="card col"><h3 style="margin:0">Так это будет выглядеть</h3><${Preview} s=${s} d=${d} f=${f} address=${addr} /></div>
+      <div class="card col"><h3 style="margin:0">Так это будет выглядеть</h3><${Preview} s=${s} d=${d} f=${f} address=${addr} /><${CopyText} s=${s} f=${f} address=${addr} /></div>
     </div>`;
   }
 

@@ -335,4 +335,11 @@ export default {
   "сейчас ни одному серверу не нужен, при необходимости скачается снова": "no server needs it now; it will be downloaded again if needed",
   "Сервер загрузок CurseForge отвечает медленно, повторных попыток:": "The CurseForge download server is responding slowly, retries:",
   "Это не ошибка: файл скачивается со следующей попытки, установка продолжается. Если повторов очень много, переключите трафик сервера на VLESS выше.": "This is not an error: the file is downloaded on the next attempt and the installation continues. If there are very many retries, switch the server traffic to VLESS above.",
+  "Сообщения модов, которые бывают при каждом запуске и не мешают игре": "Mod messages that appear on every start and do not affect the game",
+  "Шум скрыт": "Noise hidden",
+  "Показать только важное": "Show only what matters",
+  "Скопировать для Discord": "Copy for Discord",
+  "Без вебхука и бота: текст табло на этот момент, вставьте его в канал сами. Обновляться он не будет.": "No webhook or bot needed: the board text as of now, paste it into a channel yourself. It will not update.",
+  "Скопировано. Вставьте в любой канал Discord (Ctrl+V)": "Copied. Paste it into any Discord channel (Ctrl+V)",
+  "Не удалось скопировать: браузер не дал доступ к буферу обмена": "Could not copy: the browser denied clipboard access",
 };

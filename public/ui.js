@@ -253,7 +253,8 @@ export const ago = ms => {
 };
 export const plural = pluralOf;
 /* Копирование сразу в буфер. По http с IP-адресом navigator.clipboard недоступен, поэтому есть запасной путь через execCommand. */
-export const copyText = async t => {
+/** Копирует текст. quiet: без своего уведомления, вернуть true или false. */
+export const copyText = async (t, quiet) => {
   let ok = false;
   if (navigator.clipboard && window.isSecureContext) {
     try { await navigator.clipboard.writeText(t); ok = true; } catch {}
@@ -268,6 +269,7 @@ export const copyText = async t => {
     try { ok = document.execCommand('copy'); } catch {}
     ta.remove();
   }
+  if (quiet) return ok;
   if (ok) toast('Скопировано: ' + t);
   else toast('Не удалось скопировать автоматически: выделите адрес и нажмите Ctrl+C', 'err');
 };
