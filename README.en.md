@@ -506,6 +506,7 @@ The **Update to vX** button in **Settings → Security** updates the whole panel
 - If the new version does not build or start, the panel returns to the previous one and the card shows the reason.
 - Minecraft servers keep running during the update, players notice nothing.
 - The code next to `docker-compose.yml` is updated too, so `./update.sh` and `docker compose` keep building the same version. The previous code is saved in `DATA_DIR/update`.
+- Commits that only change screenshots and the README are not treated as updates: the badge appears only when the panel code has changed.
 - **Check now** asks GitHub right away. If GitHub is blocked by your provider and the panel's CurseForge requests go via VLESS, the check and the download use the same node.
 - Updating from the panel works in a regular Docker installation. Outside Docker, use `./update.sh`.
 

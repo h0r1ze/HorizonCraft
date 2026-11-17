@@ -31,6 +31,9 @@ const readJson = f => { try { return JSON.parse(fs.readFileSync(f, 'utf8')); } c
 export const installed = () => readJson(INSTALLED) || {};
 export const status = () => readJson(STATUS);
 
+/** Файлы, которые не влияют на работу панели: скриншоты, README, лицензия, настройки GitHub. */
+export const docsOnly = f => /^(docs|\.github)(\/|$)/.test(f) || /\.md$/i.test(f) || f === 'LICENSE';
+
 let latest = null, checkedAt = 0, checkError = '', checking = null, starting = false;
 
 async function gh(url) {
@@ -53,6 +56,16 @@ export function check(force = false) {
         sha: c.sha, version: String(pkg.version || ''), date: c.commit?.committer?.date || c.commit?.author?.date || '',
         message: String(c.commit?.message || '').split('\n')[0].slice(0, 200), url: `https://github.com/${REPO}/commit/${c.sha}`,
       };
+      // та же версия, но другой коммит: обновлением считается, только если изменилось что-то кроме документации
+      const inst = installed();
+      if (inst.sha && inst.sha !== c.sha && /^[0-9a-f]{40}$/.test(inst.sha) && cmpVer(latest.version, VERSION) === 0) {
+        try {
+          // сравниваются снимки верхнего уровня двух коммитов (сравнение изменений GitHub не отдаёт для коммитов с большими картинками)
+          const tree = async sha => new Map(((await gh(`${API}/repos/${REPO}/git/trees/${sha}`)).tree || []).map(e => [String(e.path), String(e.sha)]));
+          const [a, b] = await Promise.all([tree(inst.sha), tree(c.sha)]);
+          latest.code = !b.size || [...new Set([...a.keys(), ...b.keys()])].some(k => !docsOnly(k) && a.get(k) !== b.get(k));
+        } catch { latest.code = true; }
+      }
       checkError = '';
     } catch (e) {
       checkError = e.name === 'TimeoutError' ? 'GitHub не ответил вовремя' : e.cause?.code ? 'Нет связи с GitHub' : e.message;
@@ -66,8 +79,8 @@ export function check(force = false) {
 export function info() {
   const inst = installed(), st = status();
   const newer = !!latest && cmpVer(latest.version, VERSION) > 0;
-  // установленный коммит известен (после обновления из панели): новый коммит той же версии тоже считается обновлением
-  const changed = !!latest && !!inst.sha && latest.sha !== inst.sha && cmpVer(latest.version, VERSION) >= 0;
+  // установленный коммит известен (после обновления из панели): новый коммит той же версии считается обновлением, если в нём менялся код
+  const changed = !!latest && !!inst.sha && latest.sha !== inst.sha && cmpVer(latest.version, VERSION) >= 0 && latest.code !== false;
   const running = starting || (st?.state === 'running' && Date.now() - (st.at || 0) < 30 * 60e3);
   return {
     version: VERSION, sha: inst.sha || '', installedAt: inst.at || null, latest, available: newer || changed, checkedAt: checkedAt || null, error: checkError,
