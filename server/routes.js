@@ -28,6 +28,7 @@ import * as groupsMod from './groups.js';
 import * as appearanceMod from './appearance.js';
 import * as tlsRoutes from './tls/routes.js';
 import * as worldsMod from './worlds.js';
+import * as cleanupMod from './cleanup.js';
 import { agentAuth, AGENT, VERSION } from './agent.js';
 
 const h = fn => (req, res, next) =>
@@ -1161,6 +1162,7 @@ export function createRouter() {
   appearanceMod.register(r, ctx);
   tlsRoutes.register(r, ctx);
   worldsMod.register(r, ctx);
+  cleanupMod.register(r, ctx);
 
   return r;
 }

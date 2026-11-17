@@ -141,4 +141,17 @@ export default [
   [/^Слишком много попыток\. Подождите (\d+) (с|мин)\.$/, (t, a, u) => `Too many attempts. Wait ${a} ${u === 'с' ? 's' : 'min'}.`],
   [/^В папке сервера «(.+)» является символической ссылкой\. Распаковка поверх ссылок запрещена: удалите её и повторите\.$/, (t, a) => `"${a}" in the server folder is a symbolic link. Extracting over links is not allowed: delete it and try again.`],
   [/^Сервер несколько раз подряд упал при запуске и остановлен, чтобы не перезапускаться бесконечно\. (.+)$/s, (t, a) => `The server crashed several times in a row on start and was stopped so it does not restart forever. ${t(a)}`],
+  // ---- очистка диска
+  [/^Файлы удалённого сервера ([a-f0-9]{8})$/, (t, a) => `Files of deleted server ${a}`],
+  [/^Резервные копии удалённого сервера ([a-f0-9]{8})$/, (t, a) => `Backups of deleted server ${a}`],
+  [/^Обложка или значок удалённого сервера ([a-f0-9]{8})$/, (t, a) => `Cover or icon of deleted server ${a}`],
+  [/^Контейнер удалённого сервера ([a-f0-9]{8})$/, (t, a) => `Container of deleted server ${a}`],
+  [/^Отчёт о падении Java: (.+)$/, (t, a) => `Java crash report: ${a}`],
+  [/^Образ Minecraft с Java (\d+)$/, (t, a) => `Minecraft image with Java ${a}`],
+  [/^Образ Minecraft с latest$/, () => 'Minecraft image with the latest Java'],
+  [/^копий: (\d+)$/, (t, a) => `backups: ${a}`],
+  [/^Удалить выбранное · (.+)$/, (t, a) => `Delete selected · ${a}`],
+  [/^Готово, освобождено (.+)$/, (t, a) => `Done, freed ${a}`],
+  [/^Удалено не всё: (.+)$/s, (t, a) => `Not everything was deleted: ${a}`],
+  [/^Удалить выбранное безвозвратно\?\s*Элементов: (\d+)(?:, освободится около (.+?))?\. Серверы из списка панели не затрагиваются\.$/s, (t, a, b) => `Delete the selected items permanently?\n\nItems: ${a}${b ? ', about ' + b + ' will be freed' : ''}. Servers listed in the panel are not touched.`],
 ];

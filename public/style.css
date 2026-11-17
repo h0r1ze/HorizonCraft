@@ -750,3 +750,10 @@ a.btn { text-decoration: none; }
 .seg.traffic button.on:nth-child(2) { color: var(--info); }
 .seg.traffic button.on:nth-child(3) { color: var(--accent, var(--info)); }
 .banner.trafficwarn { display: flex; align-items: center; gap: 12px; flex-wrap: wrap; }
+
+/* очистка диска */
+.cgroup { border: 1px solid var(--line); border-radius: 12px; overflow: hidden; }
+.cghead { display: flex; align-items: center; gap: 10px; padding: 10px 14px; background: var(--panel2); cursor: pointer; }
+.citem { display: flex; align-items: center; gap: 10px; padding: 8px 14px 8px 40px; border-top: 1px solid var(--line); cursor: pointer; }
+.citem:hover { background: var(--panel2); }
+.cgroup input[type=checkbox] { width: 16px; height: 16px; flex: none; accent-color: var(--accent); }

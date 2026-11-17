@@ -3,6 +3,7 @@ import { api } from './api.js';
 import { CreatePage } from './create.js';
 import { NodesStrip, NodesSettings } from './nodes.js';
 import { TemplatesSettings } from './templates.js';
+import { CleanupCard } from './cleanup.js';
 import { ProxySettings, PanelProxy } from './proxy.js';
 import { coverUrl } from './cover.js';
 import { ServerName } from './mcfmt.js';
@@ -318,6 +319,7 @@ function SettingsPage({ onTheme, theme, onUi, section: sec0 }) {
         ${img?.error && html`<span style="color:var(--danger)">${img.error}</span>`}</div>
     </div>
     <${TemplatesSettings} />
+    <${CleanupCard} />
     <${NodesSettings} />`,
   };
   const content = html`<div class="col setbody">

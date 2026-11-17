@@ -459,7 +459,7 @@ The panel's **Settings** page has four sections with a section menu on the left 
 | Section | What is there |
 |---|---|
 | **Security** | [HTTPS and certificates](#-https-and-certificates), the panel port, certificate trust, password change |
-| **Servers and nodes** | The CurseForge key (and the panel's requests to it via VLESS), Minecraft images, server templates, nodes |
+| **Servers and nodes** | The CurseForge key (and the panel's requests to it via VLESS), Minecraft images, server templates, [disk cleanup](#-disk-cleanup), nodes |
 | **Network** | The default public server address, [VLESS: node and mode](#-vless-proxy-and-tun) |
 | **Appearance** | Language, interface layout, theme and panel background |
 
@@ -501,6 +501,19 @@ The **Update to vX** button in **Settings → Security** updates the whole panel
 - The code next to `docker-compose.yml` is updated too, so `./update.sh` and `docker compose` keep building the same version. The previous code is saved in `DATA_DIR/update`.
 - **Check now** asks GitHub right away. If GitHub is blocked by your provider and the panel's CurseForge requests go via VLESS, the check and the download use the same node.
 - Updating from the panel works in a regular Docker installation. Outside Docker, use `./update.sh`.
+
+## 🧽 Disk cleanup
+
+If you delete a server without ticking "Also delete the world and all server files", its folder stays on disk. **Settings → Servers and nodes → Disk cleanup** finds such leftovers and everything that piled up on its own:
+
+- folders, backups, covers and containers of deleted servers;
+- Minecraft images with a Java version no server needs right now (they will be downloaded again if needed);
+- Java crash reports (`hs_err_pid*.log`, `core.*`) in server folders: a core file can be as large as the server memory;
+- unfinished uploads and transfers older than an hour, files of deleted templates, panel code copies left by updates.
+
+Before deleting you see exactly what goes and how much space is freed, and you can untick items. Servers listed in the panel, their worlds and backups are never touched, nor are other containers and images (not HorizonCraft). On nodes, run the cleanup in their own panel.
+
+<p align="center"><img src="docs/en/cleanup.png" alt="Disk cleanup" width="640"></p>
 
 ## 🔄 Maintenance
 
